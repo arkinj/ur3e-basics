@@ -1,0 +1,9 @@
+docker run -it --net=host --privileged \
+  --env="DISPLAY" \
+  --env="QT_X11_NO_MITSHM=1" \
+  --volume="/dev:/dev" \
+  --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+  --volume="${PWD}/scripts":"/catkin_ws/scripts":rw \
+  --volume="${PWD}/src/dummy_package":"/catkin_ws/src/dummy_package":rw \
+  ur3e-basics
+  bash

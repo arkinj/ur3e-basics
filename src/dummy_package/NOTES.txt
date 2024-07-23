@@ -1,0 +1,1 @@
+This is a dummy package to illustrate mounting a src directory onto the docker container without replacing the installed dependencies.

@@ -1,0 +1,107 @@
+FROM osrf/ros:noetic-desktop-full
+
+# Change the default shell to Bash
+SHELL [ "/bin/bash", "-c" ]
+
+# Download and build any prerequisite libraries
+RUN apt-get update && apt-get install -y \
+  build-essential \
+  git \
+  libpoco-dev \
+  libeigen3-dev \
+  wget \
+  software-properties-common \
+  python3-pip \
+  curl \
+  apt-transport-https \
+  eog
+  
+# Install various python packages
+RUN pip install -U numpy
+RUN pip install opencv-python
+RUN pip install pyrealsense2
+RUN pip install pupil-apriltags
+
+# Install an updated version of cmake
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null
+RUN apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main"
+RUN apt-get update && apt-get install -y cmake
+
+############################################
+# Catkin Tools install & workspace init
+############################################
+
+# Install python catkin tools for managing catkin workspaces
+RUN sh \
+  -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" \
+  > /etc/apt/sources.list.d/ros-latest.list'
+RUN wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
+RUN apt-get update && apt-get install python3-catkin-tools -y
+
+# Setup ROS catkin workspace using catkin tools
+WORKDIR /catkin_ws
+RUN mkdir src
+RUN source /opt/ros/noetic/setup.bash
+RUN catkin init
+RUN catkin build; exit 0 # Prevents build failure due to cmake warnings
+
+############################################
+# Universal Robots libraries build & install
+############################################
+
+# Clone the driver and description
+WORKDIR /catkin_ws
+RUN git clone https://github.com/UniversalRobots/Universal_Robots_ROS_Driver.git src/Universal_Robots_ROS_Driver
+RUN git clone -b melodic-devel https://github.com/ros-industrial/universal_robot.git src/universal_robot
+
+# Install dependencies
+RUN sudo apt-get update
+RUN rosdep update
+RUN rosdep install --from-paths src --ignore-src --rosdistro noetic -y --skip-keys Universal_Robots_ROS_Driver
+
+# Build
+RUN source /opt/ros/noetic/setup.bash && catkin build
+RUN source devel/setup.bash
+
+########################################
+# Robotiq Gripper Driver build & install
+########################################
+
+# Clone and checkout the necessary robotiq branch+commit
+RUN git clone -b noetic-devel https://github.com/clearpathrobotics/robotiq.git src/robotiq
+WORKDIR src/robotiq
+RUN git checkout a3236f416f7470b2ddecabdadab52371701d7334
+
+# Install dependencies
+WORKDIR /catkin_ws
+RUN rosdep install --from-paths src --ignore-src --rosdistro noetic -y src/robotiq/robotiq_modbus_tcp
+RUN sudo apt-get update && apt-get install -y \
+  ros-noetic-soem \
+  ros-noetic-socketcan-interface
+
+# Build
+WORKDIR /catkin_ws
+RUN source /opt/ros/noetic/setup.bash && catkin build
+RUN source devel/setup.bash
+
+############################################
+# Realsense library and ROS package for D435
+############################################
+
+# Install the ROS package and its dependencies
+RUN apt-get update && apt-get install -y ros-noetic-realsense2-camera 
+
+# Install librealsense
+RUN mkdir -p /etc/apt/keyrings
+RUN curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp | sudo tee /etc/apt/keyrings/librealsense.pgp > /dev/null
+RUN echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo `lsb_release -cs` main" | sudo tee /etc/apt/sources.list.d/librealsense.list
+RUN apt-get update
+RUN apt-get install -y \
+  librealsense2-dkms \
+  librealsense2-utils \
+  librealsense2-dev \
+  librealsense2-dbg
+
+# Add lines to bashrc file to source ROS
+#RUN echo "source /ros_entrypoint.sh" >> /root/.bashrc # Excluded since we do not use osrf dockerfile
+RUN echo "source /catkin_ws/devel/setup.bash" >> /root/.bashrc
