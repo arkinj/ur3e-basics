@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<robot name="ur3e_robotiq" xmlns:xacro="http://ros.org/wiki/xacro">
+<xacro:include filename="$(find mit_robot)/robot_description/xacro/ur3e_robotiq_macro.xacro"/>
+<xacro:ee_robot prefix=""/>
+</robot>

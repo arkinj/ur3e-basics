@@ -37,3 +37,42 @@ cd /catkin_ws/ # Move to the root of the workspace
 # Note that `<container ID>` is the ID of the running container and should be tab-completable.
 docker exec -it <container ID> bash
 ```
+
+## Bring up UR3E & Robotiq
+These are the steps to go from a powered off arm + gripper to a powered on & ready-to-receive state. Remember that the emergency stop (e-stop) is located at the top of the Polyscope.
+
+### Power on the UR3e
+1. Power on the UR3e computer via the UR Polyscope (light blue touchscreen). This may take a few minutes.
+
+2. Check that the `Installation -> Tool I/O` is controlled by the User. Select "Installation" from the top menu bar, then "Tool I/O" from the left pane.
+
+3. Check that the RS485 URcaps is installed. Select "URCaps" from the left pane. There should be an "RS485" pane that appears below in the left pane. If it is there, it is installed.
+
+4. Power on the UR3e via the Polyscope (button in the bottom left on the touchscreen).
+
+  - Press "Power Off" in the bottom left of the touchscreen. This should open a new menu.
+  - Confirm that the Active Payload is set and the Payload is 0.850 kg.
+  - Press "On", which should begin booting the arm. It will pause at the "Robot Active" step.
+  - Press "Start" to make the arm operational. You should hear some clicking as the breaks release.
+  - Press "Exit" at the bottom left to return to the main menu.
+
+### Start the docker container
+These next steps assume you have followed the directions above to build the docker image.
+5. In a new terminal, start the docker container using the script.
+```bash
+# Assumes you are in the root of the repo.
+./.docker/scripts/docker-mount-run
+```
+
+### Setup the network between the host machine & the UR3e
+Connect the host machine & the UR3e computer via a wired network (UR3e -> switch <- Host Machine).
+
+6. Check the UR3e's IP address on the Polyscope
+
+  - Go to "Settings" via the hamburger menu in the top right of the touchscreen.
+  - Go to "System -> Network" via the left pane.
+  - The IP address should be shown in the window.
+
+7. Check that the host machine is on the same network using the host machine's network settings manager.
+
+8. Confirm network connection via by pinging the UR3e computer from the host machine.
