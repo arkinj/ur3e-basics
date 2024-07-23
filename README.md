@@ -29,8 +29,7 @@ The `-f` flag specifies the Dockerfile to build and `-t` specifies the name of t
 # This only needs to be done once per login session.
 xhost +
 
-# Start the container by running the provided script
-cd /catkin_ws/ # Move to the root of the workspace
+# Start the container by running the provided script. This assumes you are at the root of the repo.
 ./.docker/scripts/docker-mount-run
 
 # To enter the same running container in another terminal window, run the following.
