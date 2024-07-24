@@ -71,20 +71,86 @@ These next steps assume you have followed the directions above to build the dock
 ./.docker/scripts/docker-mount-run
 ```
 
+6. If needed, build the mounted packages & source the workspace (from inside the docker container).
+```bash
+catkin build
+source devel/setup.bash
+```
+
 ### Setup the network between the host machine & the UR3e
 Connect the host machine & the UR3e computer via a wired network (UR3e -> switch <- Host Machine).
 
-6. Check the UR3e's IP address on the Polyscope
+7. Check the UR3e's IP address on the Polyscope:
 
   - Go to "Settings" via the hamburger menu in the top right of the touchscreen.
   - Go to "System -> Network" via the left pane.
   - The IP address should be shown in the window.
 
-7. Check that the host machine is on the same network using the host machine's network settings manager.
+8. Check that the host machine is on the same network using the host machine's network settings manager.
 
-8. Confirm network connection via by pinging the UR3e computer from the host machine.
+9. Confirm network connection via by pinging the UR3e computer from the host machine.
 
 ### Bringup the UR3e & the Robotiq gripper
+Launch the UR3e and Robotiq gripper & allow external control to the robot.
+
+10. Prepare to run the `external_control` program on the UR3e polyscope. Press "Run" in the top left of the touchscreen. You should see "external_control" in the "Program" box and the status should be "Stopped".
+
+11. Bringup the UR3e & Robotiq gripper.
+   - The `launch_ur_driver_tool_use.sh` script runs the `bringup_ur3e_robotiq.launch` file provided by the `mit_robot` package.
+  - The Robotiq gripper should have a blue light and open-close its gripper. The terminal output should say "Gripper on port /tmp/ttyUR Activated" then "Robotiq server started".
+  - A bit further up, the terminal should also read "Robot mode is now RUNNING", then "Robot's safety mode is now NORMAL".
+```bash
+cd /catkin_ws/
+./scripts/launch_ur_driver_tool_use.sh
+```
+
+12. Enable external control.
+  - On the polyscope, press the large play button to enable external control. The terminal should read the following:
+```
+[ INFO] [1721836055.876387186]: Robot requested program
+[ INFO] [1721836055.876551560]: Sent program to robot
+[ INFO] [1721836056.224020343]: Robot connected to reverse interface. Ready to receive control commands.
+```
+
+  - Note that sometimes the Robotiq server get interrupted by this step. The light may switch from blue to red, but it should shortly switch back to blue. If this happens, the following terminal output is expected:
+```
+Modbus Error: [Input/Output] Modbus Error: [Invalid Message] Incomplete message received, expected at least 2 bytes (0 received)
+[FATAL] [1721836061.219493]: Failed to contact gripper on port: /tmp/ttyUR
+
+```
 
 ### Power down the UR3e
+Terminate any processes that are running.
 
+13. Power off the UR3e
+
+  - Press "Normal" (formerly "Power Off") in the bottom left of the touchscreen.
+  - Press "OFF" to power off the UR3e.
+  - Press "Exit" to leave the menu.
+
+14. Shut down the UR3e computer
+
+  - Press "Shutdown Robot" in the hamburger menu in the top right of the touchscreen.
+
+
+
+## Run a Simple Demo
+These are the steps to go from a powered off arm + gripper to running a simple demo that moves the arm and opens the gripper. Many of the steps are the same as the above and refer to them for concision.
+
+1. Power on the UR3e (see above section).
+
+2. Start the docker container (see above section).
+
+3. Setup the network between the host machine & the UR3e (see above section).
+
+4. Bringup the UR3e & the Robotiq gripper (see above section).
+
+5. Launch the MoveIt! planning interface.
+    - open a new terminal and enter the docker container: ```docker exec -it <container ID> bash```
+    - source the workspace: ```source devel/setup.bash```
+    - start the process: ```roslaunch ur3e_robotiq_moveit_config move_group.launch```
+
+6. Run the demo.
+    - open a new terminal and enter the docker container: ```docker exec -it <container ID> bash```
+    - source the workspace: ```source devel/setup.bash```
+    - Start the demo: ```./scripts/ur3e_robotiq_demo.py```
