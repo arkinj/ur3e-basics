@@ -9,11 +9,8 @@ The dockerfiles can be found in `catkin_ws/.docker/dockerfiles/`. The provided d
 ### dockerfile-ur3e-basics
 This dockerfile can be used to build an image that starts with the provided ROS Noetic docker image and builds the required robot libraries on top of it. It also adds dependencies for the Realsense cameras, python AprilTags library, and various useful packages for development & debugging.
 
-### dockerfile-nvidia-ros
-This dockerfile provides a base image that starts with the provided nvidia docker image (cuda11.1.1 & ubuntu 20.04) and builds ROS Noetic on top of it. This can be used as the base image if it is useful to access an Nvidia GPU on the host machine while inside the docker container.
-
-## Build Docker Image & Run Container (no Nvidia)
-These instructions are for building & running a docker image that does NOT provide functionality to use a host machine's nvidia GPU. These steps assume you are at the root of the repo.
+## Build Docker Image & Run Container
+These instructions are for building & running the docker image. These steps assume you are at the root of the repo.
 
 ### Instructions
 1. Build the image. Note that this can take a few minutes when building from scratch.
@@ -35,6 +32,17 @@ xhost +
 # To enter the same running container in another terminal window, run the following.
 # Note that `<container ID>` is the ID of the running container and should be tab-completable.
 docker exec -it <container ID> bash
+```
+
+## Commit Docker Image Changes
+It can be useful to commit changes you have made to the docker image while running in a container. For example, you can build the packages that get mounted into `/src/` and commit the built state as an image.
+
+```bash
+# Get the Container ID of the running container
+docker container ls
+
+# Commit the changes (you can overwrite the existing image or create a new one with a new name)
+docker commit <container ID> <new docker image name>
 ```
 
 ## Bring up UR3E & Robotiq
@@ -75,3 +83,8 @@ Connect the host machine & the UR3e computer via a wired network (UR3e -> switch
 7. Check that the host machine is on the same network using the host machine's network settings manager.
 
 8. Confirm network connection via by pinging the UR3e computer from the host machine.
+
+### Bringup the UR3e & the Robotiq gripper
+
+### Power down the UR3e
+
