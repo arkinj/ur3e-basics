@@ -1,0 +1,11 @@
+moveit_setup_assistant_config:
+  URDF:
+    package: ""
+    relative_path: /catkin_ws/src/mit_robot/robot_description/xacro/ur3e_robotiq.xacro
+    xacro_args: ""
+  SRDF:
+    relative_path: config/ur3e_robotiq.srdf
+  CONFIG:
+    author_name: Jacob Arkin
+    author_email: jarkin@mit.edu
+    generated_timestamp: 1709221935

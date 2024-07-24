@@ -5,5 +5,6 @@ docker run -it --net=host --privileged \
   --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
   --volume="${PWD}/scripts":"/catkin_ws/scripts":rw \
   --volume="${PWD}/src/mit_robot":"/catkin_ws/src/mit_robot":rw \
+  --volume="${PWD}/src/ur3e_robotiq_moveit_config":"/catkin_ws/src/ur3e_robotiq_moveit_config":rw \
   ur3e-basics
   bash
