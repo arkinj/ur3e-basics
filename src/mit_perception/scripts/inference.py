@@ -127,11 +127,17 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
 
         # execute action_horizon number of steps
         # without replanning
+
+        #action np.array((15,2))
         for i in range(len(action)):
             # stepping env
             ## Replace this with the data we get from april_tags. This can be a function, which takes end
             # effector pose (x,y) as an input, scales it, and then observes the april tag response and scales it
             obs, coverage, reward, done, info = env.step(action[i])
+            
+            #Execution: action[i] -[X,Y] --> scaled end effector pose in the PoseStamped object -->move_pose() 
+            #Observation collection: April_Tag1, April_Tag2 (new location)--> obs vector [5X1] , [x_end, y_end, x_ob, y_ob, theta_ob]
+
             # save observations
             info = env._get_info()
             shape = info['block_pose']
