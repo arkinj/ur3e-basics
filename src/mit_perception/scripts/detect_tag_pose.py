@@ -10,7 +10,9 @@ import mit_perception.perception_utils as perception_utils
 from scipy.spatial.transform import Rotation as R
 import math
 
-def main():
+import argparse
+
+def main(generate_images=False, continuous=True):
   """Initialize the camera. Get an image and tag pose."""
   # Initialize the camera and AprilTag detector
   pipeline = perception_utils.get_camera_pipeline(
@@ -22,7 +24,7 @@ def main():
     families="tag36h11", quad_decimate=1.0, quad_sigma=0.0, decode_sharpening=0.25
   )
 
-  generate_images = False
+  # generate_images = False
 
   if generate_images:
     # Get an image
@@ -78,7 +80,7 @@ def main():
 
 
 
-  continuous = True
+  # continuous = True
 
   while True:
     image = perception_utils.get_image(
@@ -154,4 +156,8 @@ def main():
       break
 
 if __name__ == "__main__":
-  main()
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-g', '--generate-images', action='store_true')
+  parser.add_argument('-c', '--continuous', action='store_true')
+  args = parser.parse_args()
+  main(generate_images, continuous)

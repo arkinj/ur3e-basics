@@ -11,6 +11,9 @@ from skvideo.io import vwrite
 from mit_perception.env_T import PushTEnv
 from mit_perception.network import ConditionalUnet1D
 from mit_perception.inference_utils import normalize_data, unnormalize_data
+import mit_perception.move_utils
+
+
 device = torch.device('cuda')
 
 # parameters
@@ -30,7 +33,7 @@ noise_pred_net = ConditionalUnet1D(
     input_dim=action_dim,
     global_cond_dim=obs_dim*obs_horizon
 )
-noise_pred_net.load_state_dict(torch.load('/home/anjali/push_T_diffusion_model'))
+noise_pred_net.load_state_dict(torch.load('/home/anjali/push_T_diffusion_model')) #Add to-do
 
 noise_pred_net = noise_pred_net.cuda()
 
@@ -65,6 +68,23 @@ rewards = list()
 done = False
 step_idx = 0
 alpha = 0.1
+
+
+# setup real arm
+move_group_arm, move_group_hand = move_utils.setup()
+move_utils.move_to_home_pose(move_group_arm)
+move_utils.close_gripper(move_group_hand)
+
+# Initialize the camera and AprilTag detector
+pipeline = perception_utils.get_camera_pipeline(
+    width=1280, height=720, stream_format='bgr'
+)
+intrinsics = perception_utils.get_intrinsics(pipeline=pipeline)
+detector = apriltag.Detector(
+    # families="tagStandard52h13", quad_decimate=1.0, quad_sigma=0.0, decode_sharpening=0.25
+    families="tag36h11", quad_decimate=1.0, quad_sigma=0.0, decode_sharpening=0.25
+)
+
 
 #def cost_grad(nmean):
 seed=42
@@ -134,6 +154,8 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
             ## Replace this with the data we get from april_tags. This can be a function, which takes end
             # effector pose (x,y) as an input, scales it, and then observes the april tag response and scales it
             obs, coverage, reward, done, info = env.step(action[i])
+            # uncomment below to use real step (currently very untested )
+            # obs, coverage, reward, done, info = env.step_real(action[i], move_group_arm, pipeline, intrinsics, detector)
             
             #Execution: action[i] -[X,Y] --> scaled end effector pose in the PoseStamped object -->move_pose() 
             #Observation collection: April_Tag1, April_Tag2 (new location)--> obs vector [5X1] , [x_end, y_end, x_ob, y_ob, theta_ob]

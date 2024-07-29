@@ -6,6 +6,9 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 
+from scipy.spatial.transform import Rotation as R
+import math
+
 def get_camera_pipeline(width, height, stream_format):
   """Starts an RGB image stream from the RealSense. Gets pipeline object."""
   pipeline = rs.pipeline()
@@ -269,3 +272,78 @@ def get_color_and_depth_image(pipeline, display_image=False):
     cv2.waitKey(1000)
 
   return color_image, depth_image
+
+
+
+def get_tag_poses_in_ref_tag_frame(detector, image, intrinsics, tag_length, tag_active_pixel_ratio, ref_tag_idx):
+  # image = get_image(
+  #   pipeline=pipeline, display_images=False, silent=True
+  # )
+
+  # get tags as detection objects
+  tags = get_tag_poses_in_camera_frame(
+    detector=detector,
+    image=image,
+    intrinsics=intrinsics,
+    tag_length=tag_length, #2.0, # inches
+    tag_active_pixel_ratio=tag_active_pixel_ratio, # 0.6, # Magic
+    as_detection=True
+  )
+
+  if len(tags) < 2:
+    print(f"only {len(tags)} in camera view :(")
+    return
+
+  # transforming pose estimates to stationary tag frame
+  # reference: https://github.com/dawsonc/tello-x/blob/main/tellox/pilot.py
+
+  tagS = tags[ref_tag_idx] # stationary tag (use this frame of reference)
+  tagM_s = tags[:ref_tag_idx] + tags[ref_tag_idx+1:]
+
+  # rotations for stationary tag
+  R_cam_tagS = R.from_matrix(tagS.pose_R)
+  R_tagS_cam = R.inv(R_cam_tagS)
+
+  # translations for stationary tag in camera frame
+  p_cam_tagS_cam = tagS.pose_t.reshape(-1)
+  p_tagS_cam_cam = -p_cam_tagS_cam
+  # camera translation in stationary tag frame
+  p_tagS_cam_tagS = R_tagS_cam.apply(p_tagS_cam_cam)
+
+  tagM_translations = []
+  tagM_rotations = []
+
+  for m_idx, tagM in enumerate(tagM_s):
+    # rotations for moving tag
+    R_cam_tagM = R.from_matrix(tagM.pose_R)
+    R_tagM_cam = R.inv(R_cam_tagM)
+    # rotation for moving tag in stationary tag frame
+    R_tagM_tagS = R_tagM_cam * R_cam_tagS
+
+    # translations for moving tag in camera frame
+    p_cam_tagM_cam = tagM.pose_t.reshape(-1)
+    # camera to moving tag translation in stationary tag frame
+    p_cam_tagM_tagS = R_tagS_cam.apply(p_cam_tagM_cam)
+
+    # moving tag translation in stationary tag frame
+    p_tagS_tagM_tagS = p_tagS_cam_tagS + p_cam_tagM_tagS
+
+    # trying something
+    p_tagS_tagM_cam = p_tagS_cam_cam + p_cam_tagM_cam
+    # p_tagS_tagM_tagS_alt = R_tagS_cam.apply(p_tagS_tagM_cam)
+
+    euler_angles = R_tagM_tagS.as_euler("XYZ")
+
+    np.set_printoptions(precision=3, suppress=True)
+    # print(p_tagS_tagM_tagS)
+    print(f"{m_idx}: tagM translation in tagS frame:")
+    print(p_tagS_tagM_tagS)
+    print(f"{m_idx}: tagM rotation in tagS frame:")
+    print(R_tagM_tagS.as_matrix())
+    print(f"{m_idx}: tagM rotation in XYZ euler angles (rad):")
+    print(euler_angles)
+
+    tagM_translations.append(p_tagS_tagM_tagS)
+    tagM_rotations.append(R_tagM_tagS)
+
+  return tagM_translations, tagM_rotations
