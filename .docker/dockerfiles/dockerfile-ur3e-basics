@@ -27,6 +27,11 @@ RUN pip install opencv-python
 RUN pip install pyrealsense2
 RUN pip install pupil-apriltags
 
+#Some new package installations for running the Diffusion Policy
+RUN pip install diffusers 
+RUN pip install torch
+RUN pip install sk-video, tqdm
+
 # Install an updated version of cmake
 RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null
 RUN apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main"
