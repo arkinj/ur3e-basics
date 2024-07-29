@@ -5,13 +5,14 @@ import rospy
 import moveit_commander
 import moveit_msgs.msg
 import geometry_msgs.msg
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Pose, Point
 
+import time
 import actionlib
 from robotiq_2f_gripper_msgs.msg import CommandRobotiqGripperFeedback, CommandRobotiqGripperResult, CommandRobotiqGripperAction, CommandRobotiqGripperGoal
 from robotiq_2f_gripper_control.robotiq_2f_gripper_driver import Robotiq2FingerGripperDriver as Robotiq
 
-from math import pi, tau, dist, fabs, cos
+from math import pi, tau, dist, fabs, cos, sin
 
 from std_msgs.msg import String
 from moveit_commander.conversions import pose_to_list
@@ -98,6 +99,55 @@ def go_home():
   move_group.stop()
 
 
+def generate_circle_poses(pose_center, r, n, frame_id=None):
+  x = pose_center.pose.position.x
+  y = pose_center.pose.position.y
+  z = pose_center.pose.position.z
+  theta = pi / (3*n)
+  poses = []
+  
+  for i in range(n):
+    p = copy.deepcopy(pose_center)
+    if frame_id is not None:
+      p.header.frame_id = frame_id
+    p.pose.position.x = x + r * cos(theta * i)
+    p.pose.position.y = y + r * sin(theta * i)
+    p.pose.position.z = z
+    # p.pose.orientation = pose_center.pose.orientation
+    print(f"{i :2d}: ({p.pose.position.x :.4f}, {p.pose.position.y :.4f}, {p.pose.position.z :.4f})")
+    poses.append(p)
+  # print(poses)
+  return poses
+
+def move_to_poses(move_group_arm, pose_goals, manual=True, dry_run=False):
+  for i in range(len(pose_goals)):
+    pose_goal = pose_goals[i]
+    p = pose_goal.pose.position
+    print(f"\ngoal pose {i :2d}: ({p.x :.4f}, {p.y :.4f}, {p.z :.4f})")
+
+    if manual:
+      input("Press enter to plan to goal pose...")
+    else:
+      print("planning goal pose...")
+    if not dry_run:
+      move_group_arm.set_pose_target(pose_goal)
+    else:
+      print("dry run, we won't actually move arm :)")
+
+    # Move to the pose goal
+    if manual:
+      input("Press enter to move to the goal pose...")
+    else:
+      print("moving to the goal pose...")
+    if not dry_run:
+      success = move_group_arm.go(wait=True) 
+      # Stop and Clear after execution
+      move_group_arm.stop()
+      move_group_arm.clear_pose_targets()
+    else:
+      print("dry run, we won't actually move arm :)")
+  
+
 
 def main():
   # Initialize a commander and node
@@ -153,20 +203,53 @@ def main():
   backwall_pose.pose.position.y = -0.5
   backwall_pose.pose.position.z = 0
   scene.add_box("backwall", backwall_pose, (1,0.01,1))
-  
+  """
+  # Close the gripper
+  input("Press enter to close the gripper")
+  move_group_hand.set_named_target("close")
+  success = move_group_hand.go(wait=True)
+  move_group_hand.stop()
+  move_group_hand.clear_pose_targets()
+  """
   # Go to the home pose
   input("Press enter to move to \"home\"...")
+  s = time.time()
   move_group_arm.set_named_target("home")
   success = move_group_arm.go(wait=True)
   move_group_arm.stop()
   move_group_arm.clear_pose_targets()
-
-  # Plan to a pose goal
-  input("Press enter to plan to goal pose...")
+  print('Time taken to go home: ', time.time() - s)
+ 
   pose_goal = move_group_arm.get_current_pose()
   pose_goal.pose.position.x = -0.1688111302792703
-  pose_goal.pose.position.y = 0.39195621031298655
-  pose_goal.pose.position.z = 0.3596369615044568
+  pose_goal.pose.position.y = 0.35195621031298655
+  pose_goal.pose.position.z = 0.3196369615044568
+
+  #Goal-2
+  pose_goal = move_group_arm.get_current_pose()
+  pose_goal.pose.position.x = 0.0967145
+  pose_goal.pose.position.y = 0.28001118
+  pose_goal.pose.position.z = 0.3196369615044568
+
+  move_to_poses(move_group_arm, [pose_goal])
+
+  #circle_poses = generate_circle_poses(pose_goal, 0.1, 10)
+  #move_to_poses(move_group_arm, circle_poses, dry_run=False, manual=False)
+
+  
+
+  """
+  circle_poses = generate_circle_poses(pose_goal, 0.01, 1)
+  move_to_poses(move_group_arm, circle_poses, dry_run=False)
+  # Plan to a pose goal
+  # -190 mm is the safe pose. +x is to the left of the manipulator in table plane, +y is to the front of the manipulator in table plane, +z is upwards
+  #input("Press enter to plan to goal pose...")
+  
+  #circle_poses = generate_circle_poses(pose_goal, 0.02, 1)
+  #move_to_poses(move_group_arm, circle_poses, dry_run=True)
+
+  
+  
   move_group_arm.set_pose_target(pose_goal)
 
   # Move to the pose goal
@@ -176,7 +259,141 @@ def main():
   move_group_arm.stop()
   move_group_arm.clear_pose_targets()
 
-  """
+  
+  # Plan to a pose goalfor z-calibration
+  input("Press enter to plan to goal pose...")
+  pose_goal = move_group_arm.get_current_pose()
+  pose_goal.pose.position.x = -0.1688111302792703
+  pose_goal.pose.position.y = 0.3195621031298655
+  pose_goal.pose.position.z = 0.2596369615044568
+  move_group_arm.set_pose_target(pose_goal)
+
+  # Move to the pose goal
+  input("Press enter to move to the goal pose...")
+  success = move_group_arm.go(wait=True) 
+  # Stop and Clear after execution
+  move_group_arm.stop()
+  move_group_arm.clear_pose_targets()
+
+  # Plan to a pose-2 goal
+  #input("Press enter to plan to goal pose...")
+  pose_goal = move_group_arm.get_current_pose()
+  pose_goal.pose.position.x = -0.1888111302792703
+  pose_goal.pose.position.y = 0.39195621031298655
+  pose_goal.pose.position.z = 0.3596369615044568
+  start_time = time.time()
+  move_group_arm.set_pose_target(pose_goal)
+  plan_time = time.time()
+  print("Plan time:",plan_time-start_time)
+
+  # Move to the pose goal
+  #input("Press enter to move to the goal pose...")
+  start_time = time.time()
+  success = move_group_arm.go(wait=True) 
+  move_time = time.time()
+  # Stop and Clear after execution 
+  move_group_arm.stop()
+  move_group_arm.clear_pose_targets()
+  stop_time = time.time()
+  print("Move time:",move_time-start_time)
+  print("Stop time:",stop_time-move_time)
+
+  # Plan to a pose-3 goal
+  #input("Press enter to plan to goal pose...")
+  pose_goal = move_group_arm.get_current_pose()
+  pose_goal.pose.position.x = -0.1888111302792703
+  pose_goal.pose.position.y = 0.35195621031298655
+  pose_goal.pose.position.z = 0.3596369615044568
+  start_time = time.time()
+  move_group_arm.set_pose_target(pose_goal)
+  plan_time = time.time()
+  print("Plan time:",plan_time-start_time)
+
+  # Move to the pose goal
+  #input("Press enter to move to the goal pose...")
+  start_time = time.time()
+  success = move_group_arm.go(wait=True) 
+  move_time = time.time()
+  # Stop and Clear after execution 
+  move_group_arm.stop()
+  move_group_arm.clear_pose_targets()
+  stop_time = time.time()
+  print("Move time:",move_time-start_time)
+  print("Stop time:",stop_time-move_time)
+
+
+  # Plan to a pose-4 goal
+  #input("Press enter to plan to goal pose...")
+  pose_goal = move_group_arm.get_current_pose()
+  pose_goal.pose.position.x = -0.1988111302792703
+  pose_goal.pose.position.y = 0.35195621031298655
+  pose_goal.pose.position.z = 0.3596369615044568
+  start_time = time.time()
+  move_group_arm.set_pose_target(pose_goal)
+  plan_time = time.time()
+  print("Plan time:",plan_time-start_time)
+
+  # Move to the pose goal
+  #input("Press enter to move to the goal pose...")
+  start_time = time.time()
+  success = move_group_arm.go(wait=True) 
+  move_time = time.time()
+  # Stop and Clear after execution 
+  move_group_arm.stop()
+  move_group_arm.clear_pose_targets()
+  stop_time = time.time()
+  print("Move time:",move_time-start_time)
+  print("Stop time:",stop_time-move_time)
+
+
+  # Plan to a pose-5 goal
+  #input("Press enter to plan to goal pose...")
+  pose_goal = move_group_arm.get_current_pose()
+  pose_goal.pose.position.x = -0.1788111302792703
+  pose_goal.pose.position.y = 0.35195621031298655
+  pose_goal.pose.position.z = 0.3596369615044568
+  start_time = time.time()
+  move_group_arm.set_pose_target(pose_goal)
+  plan_time = time.time()
+  print("Plan time:",plan_time-start_time)
+
+  # Move to the pose goal
+  #input("Press enter to move to the goal pose...")
+  start_time = time.time()
+  success = move_group_arm.go(wait=True) 
+  move_time = time.time()
+  # Stop and Clear after execution 
+  move_group_arm.stop()
+  move_group_arm.clear_pose_targets()
+  stop_time = time.time()
+  print("Move time:",move_time-start_time)
+  print("Stop time:",stop_time-move_time)
+
+
+  # Plan to a pose-6 goal
+  input("Press enter to plan to goal pose...")
+  pose_goal = move_group_arm.get_current_pose()
+  pose_goal.pose.position.x = -0.1688111302792703
+  pose_goal.pose.position.y = 0.39195621031298655
+  pose_goal.pose.position.z = 0.3596369615044568
+  start_time = time.time()
+  move_group_arm.set_pose_target(pose_goal)
+  plan_time = time.time()
+  print("Plan time:",plan_time-start_time)
+
+  # Move to the pose goal
+  input("Press enter to move to the goal pose...")
+  start_time = time.time()
+  success = move_group_arm.go(wait=True) 
+  move_time = time.time()
+  # Stop and Clear after execution 
+  move_group_arm.stop()
+  move_group_arm.clear_pose_targets()
+  stop_time = time.time()
+  print("Move time:",move_time-start_time)
+  print("Stop time:",stop_time-move_time)
+
+  
   # Close the gripper
   input("Press enter to close the gripper")
   move_group_hand.set_named_target("close")
@@ -203,15 +420,24 @@ def main():
   move_group_hand.clear_pose_targets()
   """
 
-  input("Press enter to close the gripper via robotiq")
-  close_hand()
-  input("Press enter to open the gripper via robotiq")
-  open_hand()
-  input("Press enter to close the gripper via robotiq")
-  close_hand()
-  input("Press enter to open the gripper via robotiq")
-  open_hand()
+  #input("Press enter to close the gripper via robotiq")
+  #close_hand()
+  #input("Press enter to open the gripper via robotiq")
+  #open_hand()
+  #input("Press enter to close the gripper via robotiq")
+  #close_hand()
+  #input("Press enter to open the gripper via robotiq")
+  #open_hand()Exit
   return
+
+def circle_output_test():
+  p = PoseStamped()
+  p.pose.position = Point(-0.16, 0.39, 0.31)
+  poses = generate_circle_poses(p,0.01,4)
+  move_to_poses(None, poses, manual=True, dry_run=True)
+
 
 if __name__ == "__main__":
   main()
+  #circle_output_test()
+

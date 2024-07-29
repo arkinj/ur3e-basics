@@ -160,7 +160,8 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   scripts/get_camera_image.py
-  scripts/map_workspace.py
+  scripts/detect_tag.py
+  scripts/detect_tag_pose.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

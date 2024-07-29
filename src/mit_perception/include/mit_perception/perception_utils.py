@@ -47,13 +47,15 @@ def get_intrinsics(pipeline):
 
   return color_intrinsics_dict
 
-def get_image(pipeline, display_images=False):
+def get_image(pipeline, display_images=False, silent=False):
   """Gets an RGB image from the RealSense."""
-  print("\nGetting image...")
+  if not silent:
+    print("\nGetting image...")
   frames = pipeline.wait_for_frames()
   color_frame = frames.get_color_frame()
   color_image = np.asanyarray(color_frame.get_data())
-  print("Got image.")
+  if not silent:
+    print("Got image.")
 
   if display_images:
     cv2.namedWindow(winname="RGB Output", flags=cv2.WINDOW_AUTOSIZE)
@@ -137,7 +139,7 @@ def save_image(image, filename):
   print("Saved image.")
   return
 
-def get_tag_pose_in_camera_frame(detector, image, intrinsics, tag_length, tag_active_pixel_ratio):
+def get_tag_pose_in_camera_frame(detector, image, intrinsics, tag_length, tag_active_pixel_ratio, detect_idx=0):
   """Detects an AprilTag in an image. Gets the pose of the tag in the camera frame."""
   gray_image = cv2.cvtColor(src=image.astype(np.uint8), code=cv2.COLOR_BGR2GRAY)
   tag_active_length = tag_length * 0.0254 * tag_active_pixel_ratio
@@ -150,11 +152,47 @@ def get_tag_pose_in_camera_frame(detector, image, intrinsics, tag_length, tag_ac
 
   if detection:
     is_detected = True
-    pos = detection[0].pose_t.copy().squeeze() # (3, )
-    ori_mat = detection[0].pose_R.copy()
-    center_pixel = detection[0].center
-    corner_pixels = detection[0].corners
-    family = detection[0].tag_family
+    if detect_idx >= len(detection):
+      print(f"can't select detect_idx {detect_idx}, only {len(detection)} tags found")
+    pos = detection[detect_idx].pose_t.copy().squeeze() # (3, )
+    ori_mat = detection[detect_idx].pose_R.copy()
+    center_pixel = detection[detect_idx].center
+    corner_pixels = detection[detect_idx].corners
+    family = detection[detect_idx].tag_family
+  else:
+    is_detected = False
+    pos, ori_mat, center_pixel, corner_pixels, family = None, None, None, None, None
+
+  return is_detected, pos, ori_mat, center_pixel, corner_pixels, family
+
+def get_tag_poses_in_camera_frame(detector, image, intrinsics, tag_length, tag_active_pixel_ratio, as_detection=False):
+  """Detects an AprilTag in an image. Gets the pose of the tag in the camera frame."""
+  gray_image = cv2.cvtColor(src=image.astype(np.uint8), code=cv2.COLOR_BGR2GRAY)
+  tag_active_length = tag_length * 0.0254 * tag_active_pixel_ratio
+  detection = detector.detect(
+    img=gray_image,
+    estimate_tag_pose=True,
+    camera_params=[intrinsics["fx"], intrinsics["fy"], intrinsics["cx"], intrinsics["cy"]],
+    tag_size=tag_active_length
+  )
+
+  if detection:
+    is_detected = True
+    print(f"{len(detection)} tags found :)")
+    if as_detection:
+      return detection
+    else:
+      pos = [None] * len(detection)
+      ori_mat = [None] * len(detection)
+      center_pixel = [None] * len(detection)
+      corner_pixels = [None] * len(detection)
+      family = [None] * len(detection)
+      for i in range(len(detection)):
+        pos[i] = detection[i].pose_t.copy().squeeze() # (3, )
+        ori_mat[i] = detection[i].pose_R.copy()
+        center_pixel[i] = detection[i].center
+        corner_pixels[i] = detection[i].corners
+        family[i] = detection[i].tag_family
   else:
     is_detected = False
     pos, ori_mat, center_pixel, corner_pixels, family = None, None, None, None, None
