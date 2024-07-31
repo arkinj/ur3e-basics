@@ -275,30 +275,27 @@ def get_color_and_depth_image(pipeline, display_image=False):
 
 
 
-def get_tag_poses_in_ref_tag_frame(detector, image, intrinsics, tag_length, tag_active_pixel_ratio, ref_tag_idx):
+# returns a dict of tag_id: (translation, rotation)
+def get_tag_poses_in_ref_tag_frame(tags, ref_tag, verbose=False):
   # image = get_image(
   #   pipeline=pipeline, display_images=False, silent=True
   # )
 
   # get tags as detection objects
-  tags = get_tag_poses_in_camera_frame(
-    detector=detector,
-    image=image,
-    intrinsics=intrinsics,
-    tag_length=tag_length, #2.0, # inches
-    tag_active_pixel_ratio=tag_active_pixel_ratio, # 0.6, # Magic
-    as_detection=True
-  )
-
-  if len(tags) < 2:
-    print(f"only {len(tags)} in camera view :(")
-    return
+  # tags = get_tag_poses_in_camera_frame(
+  #   detector=detector,
+  #   image=image,
+  #   intrinsics=intrinsics,
+  #   tag_length=tag_length, #2.0, # inches
+  #   tag_active_pixel_ratio=tag_active_pixel_ratio, # 0.6, # Magic
+  #   as_detection=True
+  # )
 
   # transforming pose estimates to stationary tag frame
   # reference: https://github.com/dawsonc/tello-x/blob/main/tellox/pilot.py
 
-  tagS = tags[ref_tag_idx] # stationary tag (use this frame of reference)
-  tagM_s = tags[:ref_tag_idx] + tags[ref_tag_idx+1:]
+  tagS = ref_tag # stationary tag (use this frame of reference)
+  tagM_s = tags
 
   # rotations for stationary tag
   R_cam_tagS = R.from_matrix(tagS.pose_R)
@@ -310,10 +307,10 @@ def get_tag_poses_in_ref_tag_frame(detector, image, intrinsics, tag_length, tag_
   # camera translation in stationary tag frame
   p_tagS_cam_tagS = R_tagS_cam.apply(p_tagS_cam_cam)
 
-  tagM_translations = []
-  tagM_rotations = []
+  tagM_poses = {}
 
-  for m_idx, tagM in enumerate(tagM_s):
+  for tagM in tagM_s:
+    m_idx = tagM.tag_id
     # rotations for moving tag
     R_cam_tagM = R.from_matrix(tagM.pose_R)
     R_tagM_cam = R.inv(R_cam_tagM)
@@ -336,14 +333,16 @@ def get_tag_poses_in_ref_tag_frame(detector, image, intrinsics, tag_length, tag_
 
     np.set_printoptions(precision=3, suppress=True)
     # print(p_tagS_tagM_tagS)
-    print(f"{m_idx}: tagM translation in tagS frame:")
-    print(p_tagS_tagM_tagS)
-    print(f"{m_idx}: tagM rotation in tagS frame:")
-    print(R_tagM_tagS.as_matrix())
-    print(f"{m_idx}: tagM rotation in XYZ euler angles (rad):")
-    print(euler_angles)
+    if verbose:
+      print(f"{m_idx}: tagM translation in tagS frame:")
+      print(p_tagS_tagM_tagS)
+      print(f"{m_idx}: tagM rotation in tagS frame:")
+      print(R_tagM_tagS.as_matrix())
+      print(f"{m_idx}: tagM rotation in XYZ euler angles (rad):")
+      print(euler_angles)
 
-    tagM_translations.append(p_tagS_tagM_tagS)
-    tagM_rotations.append(R_tagM_tagS)
+    translation = p_tagS_tagM_tagS
+    rotation = R_tagM_tagS
+    tagM_poses[m_idx] = (translation, rotation)
 
-  return tagM_translations, tagM_rotations
+  return tagM_poses

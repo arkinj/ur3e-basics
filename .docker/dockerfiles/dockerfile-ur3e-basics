@@ -19,13 +19,18 @@ RUN apt-get update && apt-get install -y \
   vim \
   iputils-ping \
   iproute2 \
-  usbutils
+  usbutils \ 
+  python3-tk
   
 # Install various python packages
 RUN pip install -U numpy
 RUN pip install opencv-python
 RUN pip install pyrealsense2
 RUN pip install pupil-apriltags
+
+RUN pip 
+RUN pip install dt-apriltags
+RUN pip install matplotlib
 
 #Some new package installations for running the Diffusion Policy
 RUN pip install diffusers 

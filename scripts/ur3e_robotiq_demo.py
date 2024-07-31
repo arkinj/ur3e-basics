@@ -6,7 +6,7 @@ import moveit_commander
 import moveit_msgs.msg
 import geometry_msgs.msg
 from geometry_msgs.msg import PoseStamped, Pose, Point
-
+import ipdb
 import time
 import actionlib
 from robotiq_2f_gripper_msgs.msg import CommandRobotiqGripperFeedback, CommandRobotiqGripperResult, CommandRobotiqGripperAction, CommandRobotiqGripperGoal
@@ -16,6 +16,7 @@ from math import pi, tau, dist, fabs, cos, sin
 
 from std_msgs.msg import String
 from moveit_commander.conversions import pose_to_list
+from calibrate import transform_action
 
 def close_hand():
   input("Press enter to close the hand...")
@@ -119,18 +120,44 @@ def generate_circle_poses(pose_center, r, n, frame_id=None):
   # print(poses)
   return poses
 
-def move_to_poses(move_group_arm, pose_goals, manual=True, dry_run=False):
-  for i in range(len(pose_goals)):
-    pose_goal = pose_goals[i]
-    p = pose_goal.pose.position
-    print(f"\ngoal pose {i :2d}: ({p.x :.4f}, {p.y :.4f}, {p.z :.4f})")
+def generate_pose_from_numpy(pose_center, pose_np, n,frame_id=None):
+  poses = []
+  z = pose_center.pose.position.z
+  for i in range(n):
+    p = copy.deepcopy(pose_center)
+    if frame_id is not None:
+      p.header.frame_id = frame_id
+    print(pose_np[i][0])
+    p.pose.position.x = float(pose_np[i][0])
+    p.pose.position.y = float(pose_np[i][1])
+    p.pose.position.z = z
+    
+    # p.pose.orientation = pose_center.pose.orientation
+    print(f"{i :2d}: ({p.pose.position.x :.4f}, {p.pose.position.y :.4f}, {p.pose.position.z :.4f})")
+    poses.append(p)
+  # print(poses)
+  return poses
+
+def move_to_poses(move_group_arm, pose_goals, manual=True, dry_run=False, num_poses=1):
+  pose_i = 0
+  for i in range(len(pose_goals) // num_poses):
+    # pose_goal = pose_goals[i * 4: (i+1) *4].pose
+    pose_goal = [pose_goals[pose_i+i].pose for i in range(num_poses)]
+    pose_i = pose_i + num_poses
+    # breakpoint()
+    for j in range(num_poses):
+      p = pose_goal[j].position
+      print(f"\ngoal pose {j :2d}: ({p.x :.4f}, {p.y :.4f}, {p.z :.4f})")
 
     if manual:
       input("Press enter to plan to goal pose...")
     else:
       print("planning goal pose...")
     if not dry_run:
-      move_group_arm.set_pose_target(pose_goal)
+      # init_time = time.time()
+      move_group_arm.set_pose_targets(pose_goal)
+      # plan_time = time.time() - init_time
+      # print('plan time: ', plan_time)
     else:
       print("dry run, we won't actually move arm :)")
 
@@ -140,10 +167,12 @@ def move_to_poses(move_group_arm, pose_goals, manual=True, dry_run=False):
     else:
       print("moving to the goal pose...")
     if not dry_run:
-      success = move_group_arm.go(wait=True) 
+      # init_time = time.time()
+      success = move_group_arm.go()
+      # print('exec time: ', time.time() - init_time) 
       # Stop and Clear after execution
-      move_group_arm.stop()
-      move_group_arm.clear_pose_targets()
+      # move_group_arm.stop()
+      # move_group_arm.clear_pose_targets()
     else:
       print("dry run, we won't actually move arm :)")
   
@@ -162,6 +191,7 @@ def main():
   # Instantiate a MoveGroupCommander
   #group_name_arm = "manipulator"
   move_group_arm = moveit_commander.MoveGroupCommander("ur3e_arm")
+  # print(saasasas)
   move_group_hand = moveit_commander.MoveGroupCommander("robotiq_2f85")
 
   # Create a trajectory display publisher
@@ -204,6 +234,13 @@ def main():
   backwall_pose.pose.position.z = 0
   scene.add_box("backwall", backwall_pose, (1,0.01,1))
   """
+  # Open the gripper
+  input("Press enter to open the gripper")
+  move_group_hand.set_named_target("open")
+  success = move_group_hand.go(wait=True)
+  move_group_hand.stop()
+  move_group_hand.clear_pose_targets()
+  
   # Close the gripper
   input("Press enter to close the gripper")
   move_group_hand.set_named_target("close")
@@ -219,26 +256,32 @@ def main():
   move_group_arm.stop()
   move_group_arm.clear_pose_targets()
   print('Time taken to go home: ', time.time() - s)
- 
+  pose_goal = move_group_arm.get_current_pose()
+  
+  print(pose_goal.pose.position.x,pose_goal.pose.position.y,pose_goal.pose.position.z )
+  """
   pose_goal = move_group_arm.get_current_pose()
   pose_goal.pose.position.x = -0.1688111302792703
   pose_goal.pose.position.y = 0.35195621031298655
   pose_goal.pose.position.z = 0.3196369615044568
-
+  """
+  """
   #Goal-2
   pose_goal = move_group_arm.get_current_pose()
   pose_goal.pose.position.x = 0.0967145
   pose_goal.pose.position.y = 0.28001118
-  pose_goal.pose.position.z = 0.3196369615044568
+  pose_goal.pose.position.z = 0.25
 
-  move_to_poses(move_group_arm, [pose_goal])
-
+  action_scaled, action_np = transform_action()
+  action_poses =  generate_pose_from_numpy(pose_goal,action_scaled,100)
+  #action_poses=action_poses[0::4]
+  #action_poses = action_poses[-40:]
+  move_to_poses(move_group_arm, action_poses, manual=False, num_poses=20)
+  """
+  """
   #circle_poses = generate_circle_poses(pose_goal, 0.1, 10)
   #move_to_poses(move_group_arm, circle_poses, dry_run=False, manual=False)
 
-  
-
-  """
   circle_poses = generate_circle_poses(pose_goal, 0.01, 1)
   move_to_poses(move_group_arm, circle_poses, dry_run=False)
   # Plan to a pose goal
@@ -248,8 +291,6 @@ def main():
   #circle_poses = generate_circle_poses(pose_goal, 0.02, 1)
   #move_to_poses(move_group_arm, circle_poses, dry_run=True)
 
-  
-  
   move_group_arm.set_pose_target(pose_goal)
 
   # Move to the pose goal
@@ -438,6 +479,7 @@ def circle_output_test():
 
 
 if __name__ == "__main__":
-  main()
+  with ipdb.launch_ipdb_on_exception():
+    main()
   #circle_output_test()
 

@@ -21,7 +21,7 @@ def main(generate_images=False, continuous=True):
   intrinsics = perception_utils.get_intrinsics(pipeline=pipeline)
   detector = apriltag.Detector(
     # families="tagStandard52h13", quad_decimate=1.0, quad_sigma=0.0, decode_sharpening=0.25
-    families="tag36h11", quad_decimate=1.0, quad_sigma=0.0, decode_sharpening=0.25
+    families="tag36h11", quad_decimate=30.0, quad_sigma=0.0, decode_sharpening=0.25
   )
 
   # generate_images = False

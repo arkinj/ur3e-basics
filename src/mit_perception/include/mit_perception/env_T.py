@@ -367,7 +367,7 @@ class PushTEnv(gym.Env):
             last_pos_env = arm2env(last_position)
             # plan new goal pose based on action
             pose.pose.position.x = action_arm[0]
-            pose.pose.position.y = action_arm[1]
+            pose.pose.position.y = -action_arm[1]
             move_time = move_to_pose(move_group_arm, pose)
             # update poagentsitions
             self.agent.position = action_env
@@ -383,7 +383,7 @@ class PushTEnv(gym.Env):
 
             # TODO: change the tag lenght to actual length in mm
             translations, rotations = get_tag_poses_in_ref_tag_frame(
-                detector, image, intrinsics, 50.0, 0.6, ref_tag_idx)
+                detector, image, intrinsics, 30.0, 0.6, ref_tag_idx)
 
             # for now assume single apriltag at center,
             # need to add more offsets for more, see transform_utils
