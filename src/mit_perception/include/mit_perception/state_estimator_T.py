@@ -57,7 +57,7 @@ def get_state_estimate_T(
         april_tag, cam, 
         ref_ids=TAG_ORIGINS.keys(), 
         mov_ids=T_TAG_ORIGINS.keys(), 
-        quiet=True, show_cam=True):
+        quiet=True, show_cam=True, show_depth=False):
 
     tags, color_img, depth_image = detect_tags(april_tag, cam, return_imgs=True)
     tag_dict = {tag.tag_id: tag for tag in tags}
@@ -127,7 +127,10 @@ def get_state_estimate_T(
 
     # visualization
     if show_cam:
-        visualize(color_img)
+        if show_depth:
+            visualize(color_img, depth_image, show_depth)
+        else:
+            visualize(color_img)
     
     return T_env_pose_avg
 
@@ -165,7 +168,8 @@ def main():
         get_state_estimate_T(april_tag, cam, 
             ref_ids=args.ref_ids, 
             mov_ids=args.mov_ids, 
-            quiet=args.quiet)
+            quiet=args.quiet, 
+            show_depth=args.show_depth)
 
         k = cv2.waitKey(1)
         if k == 27:  # wait for ESC key to exit
