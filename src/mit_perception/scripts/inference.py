@@ -19,8 +19,8 @@ from mit_perception.env_T import PushTEnv
 from mit_perception.network import ConditionalUnet1D
 from mit_perception.inference_utils import normalize_data, unnormalize_data
 
-import mit_perception.move_utils as move_utils
-import mit_perception.perception_utils as perception_utils
+import mit_perception.move_utils as arm
+from mit_perception.state_estimator_T import TAG_SIZES
 
 device = torch.device('cuda')
 
@@ -74,9 +74,9 @@ done = False
 step_idx = 0
 
 # setup real arm
-move_group_arm, move_group_hand = move_utils.setup()
-move_utils.move_to_home_pose(move_group_arm)
-move_utils.close_gripper(move_group_hand)
+move_group_arm, move_group_hand = arm.setup()
+arm.move_to_home_pose(move_group_arm)
+arm.close_gripper(move_group_hand)
 
 # Initialize the camera and AprilTag detector
 cam = RealsenseCam(
