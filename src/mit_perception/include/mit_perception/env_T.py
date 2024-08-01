@@ -32,9 +32,8 @@ from IPython.display import Video
 import gdown
 import os
 
-from mit_perception.move_utils import move_to_poses
-from mit_perception.perception_utils import *
-from mit_perception.transform_utils import tag_pose_to_T_env_pose
+from mit_perception.move_utils import perform_action_env
+from mit_perception.state_estimator_T import get_state_estimate_T
 
 
 positive_y_is_up: bool = False
@@ -318,21 +317,7 @@ class PushTEnv(gym.Env):
         observation = self._get_obs()
         return observation
 
-    def step(self, action):
-        dt = 1.0 / self.sim_hz
-        self.n_contact_points = 0
-        n_steps = self.sim_hz // self.control_hz
-        if action is not None:
-            self.latest_action = action
-            for i in range(n_steps):
-                # Step PD control.
-                # self.agent.velocity = self.k_p * (act - self.agent.position)    # P control works too.
-                acceleration = self.k_p * (action - self.agent.position) + self.k_v * (Vec2d(0, 0) - self.agent.velocity)
-                self.agent.velocity += acceleration * dt
-
-                # Step physics.
-                self.space.step(dt)
-
+    def compute_step_result(self):
         # compute reward
         goal_body = self._get_goal_pose_body(self.goal_pose)
         goal_geom = pymunk_to_shapely(goal_body, self.block.shapes)
@@ -350,62 +335,41 @@ class PushTEnv(gym.Env):
 
         return observation, coverage, reward, done, info
 
-    def step_real(self, action_env, move_group_arm, pipeline, intrinsics, detector):
+
+    def step(self, action):
+        dt = 1.0 / self.sim_hz
+        self.n_contact_points = 0
+        n_steps = self.sim_hz // self.control_hz
+        if action is not None:
+            self.latest_action = action
+            for i in range(n_steps):
+                # Step PD control.
+                # self.agent.velocity = self.k_p * (act - self.agent.position)    # P control works too.
+                acceleration = self.k_p * (action - self.agent.position) + self.k_v * (Vec2d(0, 0) - self.agent.velocity)
+                self.agent.velocity += acceleration * dt
+
+                # Step physics.
+                self.space.step(dt)
+
+        return self.compute_step_result()
+        
+
+    def step_real(self, action_env, move_group_arm, tee_state_estimator):
         # same as step but uses real arm instead of simulated
         # note: anything that relies on self.space updates will be broken by this
         self.n_contact_points = 0
 
         if action_env is not None:
             self.latest_action = action_env
-            # scale action to be within bounds for real arm pose
-            # i.e. convert env coordinates to arm coordinates
-            action_arm = env2arm(action_env)
-            # move arm to pose from scaled action
-            pose = move_group_arm.get_current_pose()
-            last_pos = np.ndarray(
-                [pose.pose.position.x, pose.pose.position.y])
-            last_pos_env = arm2env(last_position)
-            # plan new goal pose based on action
-            pose.pose.position.x = action_arm[0]
-            pose.pose.position.y = -action_arm[1]
-            move_time = move_to_pose(move_group_arm, pose)
-            # update poagentsitions
-            self.agent.position = action_env
-            # TODO: does this matter?
-            self.agent.velocity = (action_env - last_pos_env) / move_time   
+            # perform action with real arm
+            self.agent.position, self.agent.velocity = \
+                perform_action_env(move_group_arm, action_env)
+            # update state for T block
+            self.position, self.angle = \
+                get_state_estimate_T(april_tag, cam) 
+                # angle is [-pi, pi) or [0, 2pi) ?
 
-            image = perception_utils.get_image(
-                pipeline=pipeline, display_images=False, silent=True
-            )
-
-            ref_tag_idx = 0 # TODO: determine idx of the stationary tag...
-            # can do that with detect_tag_pose and examining the output images
-
-            # TODO: change the tag lenght to actual length in mm
-            translations, rotations = get_tag_poses_in_ref_tag_frame(
-                detector, image, intrinsics, 30.0, 0.6, ref_tag_idx)
-
-            # for now assume single apriltag at center,
-            # need to add more offsets for more, see transform_utils
-            self.block.position, self.block.angle = \
-                tag_poses_to_T_env_pose(translation, rotation)
-
-        # compute reward, same as in simulated step
-        goal_body = self._get_goal_pose_body(self.goal_pose)
-        goal_geom = pymunk_to_shapely(goal_body, self.block.shapes)
-        block_geom = pymunk_to_shapely(self.block, self.block.shapes)
-
-        intersection_area = goal_geom.intersection(block_geom).area
-        goal_area = goal_geom.area
-        coverage = intersection_area / goal_area
-        coverage = torch.tensor(coverage, requires_grad=True)
-        reward = torch.clip(coverage / self.success_threshold, 0, 1)
-        done = coverage > self.success_threshold
-
-        observation = self._get_obs()
-        info = self._get_info()
-
-        return observation, coverage, reward, done, info
+        return compute_step_result()
 
     def render(self, mode):
         return self._render_frame(mode)

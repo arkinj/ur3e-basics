@@ -18,6 +18,7 @@ import pupil_apriltags as apriltag
 from mit_perception.env_T import PushTEnv
 from mit_perception.network import ConditionalUnet1D
 from mit_perception.inference_utils import normalize_data, unnormalize_data
+
 import mit_perception.move_utils as move_utils
 import mit_perception.perception_utils as perception_utils
 
@@ -78,14 +79,14 @@ move_utils.move_to_home_pose(move_group_arm)
 move_utils.close_gripper(move_group_hand)
 
 # Initialize the camera and AprilTag detector
-pipeline = perception_utils.get_camera_pipeline(
-    width=1280, height=720, stream_format='bgr'
+cam = RealsenseCam(
+    "317422075665", # cam serial?
+    (1280, 720), # color img size
+    (1280, 720), # depth img size
+    30 # frame rate
 )
-intrinsics = perception_utils.get_intrinsics(pipeline=pipeline)
-detector = apriltag.Detector(
-    # families="tagStandard52h13", quad_decimate=1.0, quad_sigma=0.0, decode_sharpening=0.25
-    families="tag36h11", quad_decimate=1.0, quad_sigma=0.0, decode_sharpening=0.25
-)
+# tag size in meters, or dict of tag_size: tag_ids
+april_tag = AprilTag(tag_size=TAG_SIZES) 
 
 #Manually encode the stats for min and max values of the obs and action
 obs_max = np.array([496.14618  , 510.9579   , 439.9153   , 485.6641   ,   6.2830877])
@@ -173,7 +174,7 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
             Execution: action[i] -[X,Y] --> scaled end effector pose in the PoseStamped object -->move_pose() 
             Observation collection: April_Tag1, April_Tag2 (new location)--> obs vector [5X1] , [x_end, y_end, x_ob, y_ob, theta_ob]
             """
-            obs, coverage, reward, done, info = env.step_real(action[i], move_group_arm, pipeline, intrinsics, detector)
+            obs, coverage, reward, done, info = env.step_real(action[i], move_group_arm, april_tag, cam)
             
             # save observations
             info = env._get_info()

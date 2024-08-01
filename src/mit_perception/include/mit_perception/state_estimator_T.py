@@ -4,19 +4,25 @@ import os
 
 import cv2
 import numpy as np
-# import pupil_apriltags as apriltag
-import dt_apriltags as apriltag
-
 from scipy.spatial.transform import Rotation as R
-import math
 
+import math
+import time
 import argparse
 
-from mit_perception.apriltag_utils import *
-from mit_perception.perception_utils import *
-from mit_perception.transform_utils import *
+from mit_perception.apriltag_utils import (
+    AprilTag, 
+    RealsenseCam, 
+    detect_tags)
 
-import time
+from mit_perception.perception_utils import(
+    get_tag_poses_in_ref_tag_frame)
+
+from mit_perception.transform_utils import (
+    TAG_ORIGINS, 
+    T_TAG_ORIGINS, 
+    env2real,
+    tag_poses_to_T_env_pose)
 
 # sizes in meters, length does not include border
 SMALL_TAG_SIZE = 0.023
@@ -47,10 +53,11 @@ def visualize(color_img, depth_image=None, show_depth=False):
         img = color_img
     cv2.imshow("Detected tags", img)
 
-def detect_T(april_tag, cam, 
-            ref_ids=TAG_ORIGINS.keys(), 
-            mov_ids=T_TAG_ORIGINS.keys(), 
-            quiet=True, show_cam=True):
+def get_state_estimate_T(
+        april_tag, cam, 
+        ref_ids=TAG_ORIGINS.keys(), 
+        mov_ids=T_TAG_ORIGINS.keys(), 
+        quiet=True, show_cam=True):
 
     tags, color_img, depth_image = detect_tags(april_tag, cam, return_imgs=True)
     tag_dict = {tag.tag_id: tag for tag in tags}
@@ -143,16 +150,6 @@ def main():
         print("need at least one moving tag id")
         return
 
-    # """Initialize the camera. Get an image and tag pose."""
-    # # Initialize the camera and AprilTag detector
-    # pipeline = perception_utils.get_camera_pipeline(
-    #     width=1280, height=720, stream_format='bgr'
-    # )
-    # intrinsics = perception_utils.get_intrinsics(pipeline=pipeline)
-    # detector = apriltag.Detector(
-    #     # families="tagStandard52h13", quad_decimate=1.0, quad_sigma=0.0, decode_sharpening=0.25
-    #     families="tag36h11", quad_decimate=1.0, quad_sigma=0.0, decode_sharpening=0.25
-    # )
     cam = RealsenseCam(
         "317422075665",
         (1280, 720), # color img size
@@ -165,7 +162,7 @@ def main():
     # cv2.namedWindow("RealsenseAprilTag", cv2.WINDOW_AUTOSIZE)
 
     while True:
-        detect_T(april_tag, cam, 
+        get_state_estimate_T(april_tag, cam, 
             ref_ids=args.ref_ids, 
             mov_ids=args.mov_ids, 
             quiet=args.quiet)

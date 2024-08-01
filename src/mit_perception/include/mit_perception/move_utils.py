@@ -17,6 +17,8 @@ from math import pi, tau, dist, fabs, cos, sin
 from std_msgs.msg import String
 from moveit_commander.conversions import pose_to_list
 
+from mit_perception.transform_utils import env2arm, arm2env
+
 def close_hand():
   input("Press enter to close the hand...")
   action_name = rospy.get_param('~action_name', 'command_robotiq_action')
@@ -157,6 +159,24 @@ def move_to_poses(move_group_arm, pose_goals, manual=True, dry_run=False, confir
     move_times.append(move_to_pose(
       move_group_arm, pose_goals[i], manual, dry_run, confirm_twice, i))
   return move_times
+
+def perform_action_env(move_group_arm, action_env):
+  action_arm = env2arm(action_env)
+  pose = move_group_arm.get_current_pose()
+  # record current pose for naive velocity estimate
+  last_pos = np.ndarray(
+      [pose.pose.position.x, pose.pose.position.y])
+  last_pos_env = arm2env(last_position)
+
+  # move to goal pose based on action, do any of these need flip?
+  pose.pose.position.x = action_arm[0]
+  pose.pose.position.y = action_arm[1]
+  move_time = move_to_pose(move_group_arm, pose)
+
+  # update positions, does velocity actually matter?
+  position = action_env
+  velocity = (action_env - last_pos_env) / move_time
+  return position, velocity
 
 
 def setup():
