@@ -19,13 +19,13 @@ TAG_UNIT = 1000.0 # okay as long as we specify tag length in mm for detector?
 # distance units in mm
 # (x, y, theta) in (mm, mm, radians)
 ARM_ORIGIN = np.array([0, 0]) # choose arm origin as ref
-ENV_ORIGIN = np.array([-250, 150]) # need to calibrate this?
+ENV_ORIGIN = np.array([-250, 100]) # need to calibrate this?
 # multiple ref tags
 TAG_ORIGINS = {
-    0: np.array([ 0,  0], dtype=float),
-    1: np.array([74,  0], dtype=float),
-    2: np.array([ 0, 74], dtype=float),
-    3: np.array([74, 74], dtype=float)}
+    0: np.array([-400+37,   0+37], dtype=float),
+    1: np.array([ 400-37,   0+37], dtype=float),
+    2: np.array([-250-37, 484-37], dtype=float),
+    3: np.array([ 250+37, 484-37], dtype=float)}
 
 # NOTE: WE ARE GOING TO ASSUME ALL ANGLES ARE THE SAME FOR NOW
 # can also just construct experiment like that so it hsould be fine?
@@ -91,18 +91,20 @@ def real2tag(real_pos, tag_id):
 # also just assume we are aligning all angles to the T
 
 # center of mass of T wrt upper left corner of 120x120 bounding box
-# T_COM_COORDINATES = (60, 285/7) ?? check this
+# T_COM = (60, 285/7) ?? check this
+# "center" position is based on, wrt bounding box also
+T_CENTER = np.array([60, 30], dtype=float)
 
 T_TAG_ORIGINS = {
     # tags A, B, C, D (upper part of T)
-    4:  np.array([ -45, -180/7], dtype=float),
-    5:  np.array([ -15, -180/7], dtype=float),
-    6:  np.array([  15, -180/7], dtype=float),
-    7:  np.array([  45, -180/7], dtype=float),
+    4:  np.array([ 15,  15], dtype=float) - T_CENTER,
+    5:  np.array([ 45,  15], dtype=float) - T_CENTER,
+    6:  np.array([ 75,  15], dtype=float) - T_CENTER,
+    7:  np.array([105,  15], dtype=float) - T_CENTER,
     # tags E, F, G (lower part of T)
-    8:  np.array([   0,   30/7], dtype=float),
-    9:  np.array([   0,  240/7], dtype=float),
-    10: np.array([   0,  450/7], dtype=float)}
+    8:  np.array([ 60,  45], dtype=float) - T_CENTER,
+    9:  np.array([ 60,  75], dtype=float) - T_CENTER,
+    10: np.array([ 60, 105], dtype=float) - T_CENTER}
 
 def tag_pose_to_T_env_pose(pose, tag_id, ref_tag_id):
     translation, rotation = pose

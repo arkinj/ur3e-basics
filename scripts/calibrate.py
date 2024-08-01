@@ -12,7 +12,7 @@ space will be [-25cm,0cm]X[25cm,50 cm]. Hopefully center at the robot elbow join
 def scale_action(action_np):
     action_scaled = action_np/(1000)
     action_scaled[:,0] = action_scaled[:,0]-0.25
-    action_scaled[:,1] = action_scaled[:,1]+0.15
+    action_scaled[:,1] = action_scaled[:,1]+0.1
     return action_scaled
 
 def unscale_action(action_scaled):
@@ -51,8 +51,8 @@ def visualize(action_scaled,action_np):
 if __name__ == '__main__':
     action_scaled, action_np = transform_action()
     visualize(action_scaled, action_np)
-    breakpoint()
+    # breakpoint()
 #    breakpoint()import matplotlib.pyplot as plt
-    # action_np = np.array([256,256]).reshape(1,2)
-    # action_scaled = scale_action(action_np)
-    # print(action_scaled)
+    action_np = np.array([256,256]).reshape(1,2)
+    action_scaled = scale_action(action_np)
+    print(action_scaled)

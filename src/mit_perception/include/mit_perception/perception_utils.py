@@ -331,9 +331,9 @@ def get_tag_poses_in_ref_tag_frame(tags, ref_tag, verbose=False):
 
     euler_angles = R_tagM_tagS.as_euler("XYZ")
 
-    np.set_printoptions(precision=3, suppress=True)
     # print(p_tagS_tagM_tagS)
     if verbose:
+      np.set_printoptions(precision=3, suppress=True)
       print(f"{m_idx}: tagM translation in tagS frame:")
       print(p_tagS_tagM_tagS)
       print(f"{m_idx}: tagM rotation in tagS frame:")
