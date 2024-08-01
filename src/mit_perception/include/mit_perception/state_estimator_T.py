@@ -67,6 +67,9 @@ def get_state_estimate_T(
     detected_ref_tags = [tag_dict[ref_id] for ref_id in ref_ids if ref_id in tag_dict]
     detected_mov_tags = [tag_dict[mov_id] for mov_id in mov_ids if mov_id in tag_dict]
 
+    ok = False
+    T_env_pose_avg = None
+
     if len(detected_ref_tags) > 0:
         # get T tag poses wrt each reference tag
         tag_poses_wrt_ref = {ref_tag.tag_id:
@@ -120,9 +123,12 @@ def get_state_estimate_T(
                 print(f" |-- position (real): {T_real_position}")
                 print(f" |----- angle (real): {T_real_angle:3.3f}")
                 print(f"\n")
-        else:
+
+            ok = True
+
+        elif not quiet:
             print("no T tags found ;-;\n") 
-    else:
+    elif not quiet:
         print("no reference tags found ;-;")
 
     # visualization
@@ -132,7 +138,7 @@ def get_state_estimate_T(
         else:
             visualize(color_img)
     
-    return T_env_pose_avg
+    return ok, T_env_pose_avg
 
 def main():
 
@@ -165,7 +171,7 @@ def main():
     # cv2.namedWindow("RealsenseAprilTag", cv2.WINDOW_AUTOSIZE)
 
     while True:
-        get_state_estimate_T(april_tag, cam, 
+        ok, (position, angle) = get_state_estimate_T(april_tag, cam, 
             ref_ids=args.ref_ids, 
             mov_ids=args.mov_ids, 
             quiet=args.quiet, 
