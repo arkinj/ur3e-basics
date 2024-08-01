@@ -18,7 +18,7 @@ from mit_perception.transform_utils import *
 import time
 
 # sizes in meters, length does not include border
-SMALL_TAG_SIZE = 0.030
+SMALL_TAG_SIZE = 0.023
 LARGE_TAG_SIZE = 0.060
 
 # key: tag size, value (tuple of tag_ids)
@@ -87,10 +87,16 @@ def main():
                 get_tag_poses_in_ref_tag_frame(detected_mov_tags, ref_tag)
                 for ref_tag in detected_ref_tags}
 
-            for tag_id, poses in tag_poses_wrt_ref.items():
-                print(tag_id)
-                for idx, pose in poses.items():
-                    print(idx, pose[0], pose[1].as_rotvec(degrees=True))
+            # debugging...
+            # for tag_id, poses in tag_poses_wrt_ref.items():
+            #     print(tag_id)
+            #     for idx, pose in poses.items():
+            #         # print(idx, pose[0], pose[1].as_rotvec(degrees=True))
+            #         pos, angle = tag_pose_to_T_env_pose(pose, idx, tag_id)
+            #         real_pos = env2real(pos)
+            #         print(idx, real_pos, angle)
+            
+            # slow down updates for debugging
             # time.sleep(1)
             
             # get T poses in env frame (as (x,y), theta)
@@ -98,15 +104,22 @@ def main():
                 tag_poses_to_T_env_pose(poses, ref_tag_id)
                 for ref_tag_id, poses in tag_poses_wrt_ref.items()}
 
-            positions = [pose[0] for pose in list(T_env_poses.values())]
-            angles = [pose[1] for pose in list(T_env_poses.values())]
-            # time.sleep(1)
+            # debugging...
+            # for tag_id, pose in T_env_poses.items():
+            #     print(tag_id, pose)
 
-            # T_env_pose_avg = (
-            #     np.mean(np.vstack(positions), axis=0),
-            #     np.mean(np.vstack(angles)))
+            positions = [pose[0] 
+                for pose in list(T_env_poses.values()) if pose is not None]
+            angles = [pose[1] 
+                for pose in list(T_env_poses.values()) if pose is not None]
 
-            # print(T_env_pose_avg)
+            if len(positions) > 0:
+                T_env_pose_avg = (
+                    np.mean(np.vstack(positions), axis=0),
+                    np.mean(np.vstack(angles)))
+                print(T_env_pose_avg)
+            else:
+                print("no T tag found ;-;") 
 
 
         # visualization
