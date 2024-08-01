@@ -17,6 +17,17 @@ from mit_perception.transform_utils import *
 
 import time
 
+# sizes in meters, length does not include border
+SMALL_TAG_SIZE = 0.030
+LARGE_TAG_SIZE = 0.060
+
+# key: tag size, value (tuple of tag_ids)
+# by default use T tags as small size, ref tags as large size
+TAG_SIZES = {
+    SMALL_TAG_SIZE: frozenset(T_TAG_ORIGINS.keys()),
+    LARGE_TAG_SIZE: frozenset(TAG_ORIGINS.keys())
+}
+
 def main():
 
     default_ref_ids = TAG_ORIGINS.keys()
@@ -53,7 +64,8 @@ def main():
         (1280, 720), # depth img size
         30 # frame rate
     )
-    april_tag = AprilTag(tag_size=0.018) # tag size in meters
+    # tag size in meters, or dict of tag_size: tag_ids
+    april_tag = AprilTag(tag_size=TAG_SIZES) 
 
     # cv2.namedWindow("RealsenseAprilTag", cv2.WINDOW_AUTOSIZE)
 
@@ -61,6 +73,8 @@ def main():
         tags, color_img, depth_image = detect_tags(april_tag, cam, return_imgs=True)
         tag_dict = {tag.tag_id: tag for tag in tags}
 
+        # can adjust the detection output if need to clean this up 
+        # but this is more compatible with single tag size version for now
         detected_ref_tags = [tag_dict[ref_id] for ref_id in args.ref_ids if ref_id in tag_dict]
         detected_mov_tags = [tag_dict[mov_id] for mov_id in args.mov_ids if mov_id in tag_dict]
 
@@ -86,7 +100,7 @@ def main():
 
             positions = [pose[0] for pose in list(T_env_poses.values())]
             angles = [pose[1] for pose in list(T_env_poses.values())]
-            time.sleep(1)
+            # time.sleep(1)
 
             # T_env_pose_avg = (
             #     np.mean(np.vstack(positions), axis=0),

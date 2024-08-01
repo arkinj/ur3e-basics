@@ -14,9 +14,8 @@ import argparse
 from scipy.spatial.transform import Rotation as R
 
 
-# TODO: handle pose adjustment for different active pixel ratios?
 class AprilTag:
-    def __init__(self, tag_size, tag_active_pixel_ratio=1.0):
+    def __init__(self, tag_size):
         self.at_detector = Detector(
             families="tag36h11",
             # families="tagstandard52h13",
@@ -28,7 +27,6 @@ class AprilTag:
             debug=0,
         )
         self.tag_size = tag_size
-        self.tag_active_pixel_ratio = tag_active_pixel_ratio
 
     def detect(self, frame, intr_param):
         """Detect AprilTag.
@@ -44,10 +42,17 @@ class AprilTag:
         if frame.ndim == 3:
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
-        tag_active_length = self.tag_size * self.tag_active_pixel_ratio
+        detections = []
+        if isinstance(self.tag_size, dict):
+            for tag_size, tag_ids in self.tag_size.items():
+                detections.extend([detection
+                    for detection in self.at_detector.detect(
+                        frame, True, intr_param, tag_size)
+                    if detection.tag_id in tag_ids])
+        else:
+            detections = self.at_detector.detect(
+                frame, True, intr_param, self.tag_size)
 
-        detections = self.at_detector.detect(
-            frame, True, intr_param, tag_active_length)
         # Filter out bad detections.
         return [detection for detection in detections if detection.hamming < 2] # was 2
 
