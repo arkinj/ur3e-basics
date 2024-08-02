@@ -33,7 +33,10 @@ import gdown
 import os
 
 from mit_perception.move_utils import perform_action_env
-from mit_perception.state_estimator_T import get_state_estimate_T
+from mit_perception.state_estimator_T import (
+    get_state_estimate_T,
+    get_state_estimate_T_retry
+)
 
 
 positive_y_is_up: bool = False
@@ -308,9 +311,10 @@ class PushTEnv(gym.Env):
         state = self.reset_to_state
         if state is None:
             state = np.array([
-                x0, y0,
-                350, 300,
-                0.1 * 2 * np.pi - np.pi
+                391.63782668,  33.2630066,  #Home
+                x0, y0, #T
+                #350, 300, end effector
+                0*np.pi/4#0.1 * 2 * np.pi - np.pi
                 ])
         self._set_state(state)
 
@@ -363,13 +367,14 @@ class PushTEnv(gym.Env):
             self.latest_action = action_env
             # action_env is ? x 2 array of poses to move through
             # perform action with real arm, see definition in move_utils.py
-            self.agent.position, self.agent.velocity = \
-                perform_action_env(move_group_arm, action_env)
+            # print(self.agent.position)
+            self.agent.position = list(
+                perform_action_env(move_group_arm, action_env, manual=False))
 
             # update state for T block, angle is [-pi, pi) or [0, 2pi) ?
             # see definition in state_estimator_T.py
             ok, (position, angle) = \
-                get_state_estimate_T_retry(april_tag, cam)
+                get_state_estimate_T_retry(april_tag, cam, quiet=False)
             if ok:
                 self.position = position
                 self.angle = angle

@@ -18,6 +18,7 @@ def scale_action(action_np):
 def unscale_action(action_scaled):
     action_np = action_scaled
     action_np[:,0] = action_scaled[:,0]+0.25
+    action_np[:,1] = action_scaled[:,1] -0.1
     action_np = action_np * 1000
     return action_np
 
@@ -49,10 +50,12 @@ def visualize(action_scaled,action_np):
     plt.show()
 
 if __name__ == '__main__':
-    action_scaled, action_np = transform_action()
-    visualize(action_scaled, action_np)
+    #action_scaled, action_np = transform_action()
+    #visualize(action_scaled, action_np)
     # breakpoint()
 #    breakpoint()import matplotlib.pyplot as plt
-    action_np = np.array([256,256]).reshape(1,2)
+    action_np = np.array([300,200]).reshape(1,2)
     action_scaled = scale_action(action_np)
     print(action_scaled)
+    # action = np.array([0.14163782668203295, 0.1332630065958967])
+    # print(unscale_action(action.reshape(1,2)))

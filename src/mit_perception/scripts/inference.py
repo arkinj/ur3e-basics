@@ -21,6 +21,7 @@ from mit_perception.inference_utils import normalize_data, unnormalize_data
 
 import mit_perception.move_utils as arm
 from mit_perception.state_estimator_T import TAG_SIZES
+from mit_perception.apriltag_utils import RealsenseCam, AprilTag
 
 import gdown
 
@@ -89,11 +90,11 @@ noise_scheduler = DDPMScheduler(
 )
 
 # limit enviornment interaction to 200 steps before termination
-max_steps = 200
+max_steps = 100
 
 #Initialize the PushT environment. 
 # The env class has been modified to include (x0,y0), which are the init coord of the T-block
-env = PushTEnv(x0=500,y0=100,mass=0.1,friction=1,length=4)
+env = PushTEnv(x0=256,y0=256,mass=0.1,friction=1,length=4)
 
 # get first observation
 obs = env.reset()
@@ -113,7 +114,11 @@ step_idx = 0
 #Have flags for what it should do
 move_group_arm, move_group_hand = arm.setup()
 arm.move_to_home_pose(move_group_arm)
-arm.close_gripper(move_group_hand)
+pose = move_group_arm.get_current_pose()
+pose.pose.position.z = 0.265
+arm.move_to_pose(move_group_arm, pose.pose)
+#arm.open_gripper(move_group_hand)
+#arm.close_gripper(move_group_hand)
 
 # Initialize the camera and AprilTag detector
 cam = RealsenseCam(
@@ -134,10 +139,10 @@ stats_obs = {'max':obs_max,'min':obs_min}
 stats_action = {'max':action_max,'min':action_min}
 
 #Hard-coded sequence of Gaussian noise for de-noising
-file = open('noise.pkl','rb')
-data = pickle.load(file)
-file.close()
-noisy_action_list = data['noise']
+#file = open('noise.pkl','rb')
+#data = pickle.load(file)
+#file.close()
+#noisy_action_list = data['noise']
 i_idx=0
 
 seed=1000
@@ -158,9 +163,9 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
             obs_cond = nobs.unsqueeze(0).flatten(start_dim=1)
 
             # initialize action from Guassian noise
-            noisy_action  = noisy_action_list[i_idx]
-            #noisy_action = torch.randn(
-            #   (B, pred_horizon, action_dim), device=device)
+            #noisy_action  = noisy_action_list[i_idx]
+            noisy_action = torch.randn(
+               (B, pred_horizon, action_dim), device=device)
             naction = noisy_action
 
             # initialize scheduler
@@ -200,8 +205,8 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
         # (action_horizon, action_dim)
 
         # execute action_horizon number of steps without replanning
-
-        for i in range(len(action)):
+        N_idx=1
+        for i in range(0,len(action),N_idx):
             # stepping env
             #uncomment below to use simulated environment
             #obs, coverage, reward, done, info = env.step(action[i])
@@ -211,8 +216,7 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
             Execution: action[i] -[X,Y] --> scaled end effector pose in the PoseStamped object -->move_pose() 
             Observation collection: April_Tag1, April_Tag2 (new location)--> obs vector [5X1] , [x_end, y_end, x_ob, y_ob, theta_ob]
             """
-            obs, coverage, reward, done, info = env.step_real(action[i], move_group_arm, april_tag, cam)
-            break
+            obs, coverage, reward, done, info = env.step_real(action[i:i+N_idx].reshape((1,2)), move_group_arm, april_tag, cam)
             
             # save observations
             info = env._get_info()
@@ -223,8 +227,8 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
             rewards.append(reward)
   
             print('reward',reward)
-            imgs.append(env.render(mode='rgb_array'))
-
+            #imgs.append(env.render(mode='rgb_array'))
+            print(step_idx)
             # update progress bar
             step_idx += 1
             pbar.update(1)

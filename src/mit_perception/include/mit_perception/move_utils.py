@@ -6,6 +6,8 @@ import moveit_commander
 import moveit_msgs.msg
 import geometry_msgs.msg
 from geometry_msgs.msg import PoseStamped, Pose, Point
+import numpy as np
+
 
 import time
 import actionlib
@@ -123,6 +125,10 @@ def generate_circle_poses(pose_center, r, n, frame_id=None):
 
 
 
+# def move_to_position(move_group_arm, x=None, y=None, z=None):
+#   pose = move_group_arm.get_current_pose()
+#   if 
+
 
 ############################################
 ###   BEGIN RELEVANT CODE TO STEP_REAL   ###
@@ -156,11 +162,12 @@ def move_to_pose(
   ok = False
   # pose goal can be list of poses, but if not, make it one first
   if not isinstance(pose_goal, list):
+    # pose_goal = [p.pose for p in pose_goal]
     pose_goal = [pose_goal]
   
   if not quiet:
     # print some useful data
-    positions = [pose.pose.position for pose in pose_goal]
+    positions = [pose.position for pose in pose_goal]
     if idx is not None:
       for i, p in enumerate(positions):
         print(f"\ngoal pose {idx :2d} step {i}: ({p.x :.4f}, {p.y :.4f}, {p.z :.4f})")
@@ -176,8 +183,10 @@ def move_to_pose(
   if not dry_run:
     # try to plan poses, may be unsuccessful
     try:
+      # print(pose_goal)
       move_group_arm.set_pose_targets(pose_goal)
     except:
+      print("failed to plan :(")
       # failed to plan, notify caller
       return ok, None
   elif not quiet:
@@ -247,16 +256,17 @@ def move_to_poses(
 
 
 def pose_to_xy(pose):
-  return np.ndarray(
-      [pose.pose.position.x, pose.pose.position.y])
+  return np.array(
+      [pose.position.x, pose.position.y],
+      dtype=float)
   
 
 def get_current_pose_as_xy(move_group_arm):
   pose = move_group_arm.get_current_pose()
-  return pose_to_xy(get_current_pose_as_xy)
+  return pose_to_xy(pose.pose)
 
 
-def perform_action_env(move_group_arm, action_env):
+def perform_action_env(move_group_arm, action_env, manual=False):
   """
   performs action on real arm based on env_T positions
   (see usage in env_T.py, step_real function)
@@ -267,31 +277,34 @@ def perform_action_env(move_group_arm, action_env):
 
   Returns:
     position: xy position of the arm after move, in env frame
-    velocity: velocity of arm, not sure if relevant
   """
   # hopefully this works with not just 1x2, should be able to broadcast
   action_arm = env2arm(action_env)
+  # print(action_arm.shape)
 
   # get current pose, also record it naive velocity estimate
-  old_pose = move_group_arm.get_current_pose()
+  old_pose = move_group_arm.get_current_pose().pose
   old_position = pose_to_xy(old_pose)
 
   # move to goal pose based on action, do any of these need flip?
   pose_goals = [None] * len(action_arm)
-  # generate poses by modifying x and y of current pose copy
-  for i, pos in enumerate(action_arm):
+  # gemove_to_posesnerate poses by modifying x and y of current pose copy
+  for i in range(len(action_arm)):
     # copy current pose but change x and y for action
     pose = copy.deepcopy(old_pose)
-    pose.position.x = pos[0]
-    pose.position.y = pos[1]
+    pose.position.x = -action_arm[i,0]
+    pose.position.y = action_arm[i,1]
     pose_goals[i] = pose
 
-  # attempt to plan and move to all of these together
-  ok, move_times = move_to_poses(
-    move_group_arm, pose_goals, stride=len(pose_goals))
+  # # attempt to plan and move to all of these together
+  # ok, move_times = move_to_poses(
+  #   move_group_arm, pose_goals, stride=len(pose_goals))
 
-  # below is more direct, assuming single movement, but same thing
-  # ok, move_time = move_to_pose(move_group_arm, pose_goals)
+  # below is more direct, assuming single movement, but same
+  #  thing
+  # print(pose_goals)
+  ok, move_time = move_to_pose(
+    move_group_arm, pose_goals, manual=manual)
   # move_times = [move_time]
 
   # TODO: what to do when not ok?
@@ -301,12 +314,11 @@ def perform_action_env(move_group_arm, action_env):
   # update position, does velocity actually matter?
   new_position = get_current_pose_as_xy(move_group_arm)
 
-  old_pos_env = arm2env(old_position)
+  # old_pos_env = arm2env(old_position)
   new_pos_env = arm2env(new_position)
 
-  velocity = (new_pos_env - old_pos_env) / sum(move_times)
-
-  return new_pos_env, velocity
+  # velocity = (new_pos_env - old_pos_env) / sum(move_times)
+  return new_pos_env
 
 ############################################
 ###    END RELEVANT CODE TO STEP_REAL    ###
@@ -397,6 +409,17 @@ def close_gripper(move_group_hand, manual=True):
   else:
     print("closing the gripper...")
   move_group_hand.set_named_target("close")
+  success = move_group_hand.go(wait=True)
+  move_group_hand.stop()
+  move_group_hand.clear_pose_targets()
+
+def open_gripper(move_group_hand, manual=True):
+  # Open the gripper
+  if manual:
+    input("Press enter to open the gripper")
+  else:
+    print("opening the gripper...")
+  move_group_hand.set_named_target("open")
   success = move_group_hand.go(wait=True)
   move_group_hand.stop()
   move_group_hand.clear_pose_targets()
