@@ -212,6 +212,7 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
             Observation collection: April_Tag1, April_Tag2 (new location)--> obs vector [5X1] , [x_end, y_end, x_ob, y_ob, theta_ob]
             """
             obs, coverage, reward, done, info = env.step_real(action[i], move_group_arm, april_tag, cam)
+            break
             
             # save observations
             info = env._get_info()

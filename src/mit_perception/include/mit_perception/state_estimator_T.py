@@ -35,7 +35,11 @@ TAG_SIZES = {
     LARGE_TAG_SIZE: frozenset(TAG_ORIGINS.keys())
 }
 
-def visualize(color_img, depth_image=None, show_depth=False):
+def visualize(
+    color_img, 
+    depth_image=None, 
+    show_depth=False):
+
     if show_depth and depth_image is None:
         print("show_depth set to True, must provide depth image!")
         return
@@ -53,11 +57,36 @@ def visualize(color_img, depth_image=None, show_depth=False):
         img = color_img
     cv2.imshow("Detected tags", img)
 
+
+
+############################################
+###   BEGIN RELEVANT CODE TO STEP_REAL   ###
+############################################
+
 def get_state_estimate_T(
-        april_tag, cam, 
-        ref_ids=TAG_ORIGINS.keys(), 
-        mov_ids=T_TAG_ORIGINS.keys(), 
-        quiet=True, show_cam=True, show_depth=False):
+    april_tag: AprilTag, 
+    cam: RealsenseCam, 
+    ref_ids: list[int]=TAG_ORIGINS.keys(), 
+    mov_ids: list[int]=T_TAG_ORIGINS.keys(), 
+    quiet: bool=True, 
+    show_cam: bool=True, 
+    show_depth: bool=False):
+    """
+    gets state estimate of T using april tags and camera
+
+    Args:
+        april_tag (AprilTag): april tag
+        cam (RealSenseCam): camera
+        ref_ids (list[int]): list of reference tag ids 
+        mov_ids (list[int]): list of T (moving) tag ids
+        quiet (bool): if True, suppress all non-essential logging
+        show_cam (bool): if True, show camera output
+        show_depth (bool): if True, also show depth camera output
+
+    Returns:
+        ok: if state estimate was succesfully determined
+        T_env_pose: (xy position, angle), in env frame
+    """
 
     tags, color_img, depth_image = detect_tags(april_tag, cam, return_imgs=True)
     tag_dict = {tag.tag_id: tag for tag in tags}
@@ -146,11 +175,17 @@ def get_state_estimate_T(
     return ok, T_env_pose
 
 def get_state_estimate_T_retry(
-    april_tag, cam, 
+    april_tag, 
+    cam, 
     ref_ids=TAG_ORIGINS.keys(), 
     mov_ids=T_TAG_ORIGINS.keys(), 
-    quiet=True, show_cam=True, 
-    show_depth=False, max_attempts=10):
+    quiet=True, 
+    show_cam=True, 
+    show_depth=False, 
+    max_attempts=10):
+    """
+    wrapper for get_state_estimate_T with retry on failure
+    """
 
     for _ in range(max_attempts):
         ok, (position, angle) = \
@@ -165,6 +200,14 @@ def get_state_estimate_T_retry(
         print(f"failed to get state estimate in {max_attempts} attempts...")
         print(f"using stale state estimate ;-;")
     return False, (None, None)
+
+############################################
+###    END RELEVANT CODE TO STEP_REAL    ###
+############################################
+
+
+
+
 
 def main():
 
