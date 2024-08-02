@@ -366,18 +366,11 @@ class PushTEnv(gym.Env):
                 perform_action_env(move_group_arm, action_env)
 
             # update state for T block, angle is [-pi, pi) or [0, 2pi) ?
-            max_attempts, success = 10, False
-            for _ in range(max_attempts):
-                ok, (position, angle) = \
-                    get_state_estimate_T(april_tag, cam)
-                if ok:
-                    self.block.position = position
-                    self.block.angle = angle
-                    success = True
-                    break
-            if not success:
-                print(f"failed to get state estimate in {max_attempts} attempts...")
-                print(f"using stale state estimate ;-;")
+            ok, (position, angle) = \
+                get_state_estimate_T_retry(april_tag, cam)
+            if ok:
+                self.position = position
+                self.angle = angle
 
         return compute_step_result()
 

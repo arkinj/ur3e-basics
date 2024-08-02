@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+import math
 
 # env pose: position (x, y) and angle (theta)
 # tag pose: translation (x, y, z) and rotation (R)
@@ -23,9 +24,9 @@ ENV_ORIGIN = np.array([-250, 100]) # need to calibrate this?
 # multiple ref tags
 TAG_ORIGINS = {
     0: np.array([-400+37,   0+37], dtype=float),
-    1: np.array([ 400-37,   0+37], dtype=float),
-    2: np.array([-250-37, 484-37], dtype=float),
-    3: np.array([ 250+37, 484-37], dtype=float)}
+    1: np.array([ 400-36,   0+37], dtype=float),
+    2: np.array([-250-37, 484-38], dtype=float),
+    3: np.array([ 250+38, 484-37], dtype=float)}
 
 # NOTE: WE ARE GOING TO ASSUME ALL ANGLES ARE THE SAME FOR NOW
 # can also just construct experiment like that so it hsould be fine?
@@ -116,18 +117,31 @@ def tag_pose_to_T_env_pose(pose, tag_id, ref_tag_id):
     T_angle = rotation.as_rotvec()[2]
     return T_pos_env, T_angle
 
-def tag_poses_to_T_env_pose(tag_poses, ref_tag_id):
+def tag_poses_to_T_env_pose(tag_poses, ref_tag_id, quiet=True):
     n_tags = len(tag_poses)
     if n_tags == 0:
         return None
     positions = np.zeros((n_tags, 2))
     angles = np.zeros(n_tags)
-    # take all pose estimates and just average them
+    # take all pose estimates and aggregate them
     for i, (tag_id, pose) in enumerate(tag_poses.items()):
         position, angle = tag_pose_to_T_env_pose(pose, tag_id, ref_tag_id)
         positions[i,:] = position
         angles[i] = angle
-    avg_angle = np.mean(angles)
-    avg_position = np.mean(positions, axis=0)
-    return avg_position, avg_angle
+
+    # debugging...
+    if not quiet:
+        print(f" |-- using reference tag {ref_tag_id}:")
+        np.set_printoptions(precision=3, suppress=True)
+        tag_ids = list(tag_poses.keys())
+        for i, (position, angle) in enumerate(zip(positions, angles)):
+            tag_id = tag_ids[i]
+            dashes = 4 - len(str(tag_id))
+            print(f' | |{"-"*dashes} {tag_id} | pos: {position}, rot: {math.degrees(angle):3.3f}')
+            
+    # angle = np.mean(angles)
+    # position = np.mean(positions, axis=0)
+    angle = np.median(angles)
+    position = np.median(positions, axis=0)
+    return position, angle
     

@@ -68,7 +68,7 @@ def get_state_estimate_T(
     detected_mov_tags = [tag_dict[mov_id] for mov_id in mov_ids if mov_id in tag_dict]
 
     ok = False
-    T_env_pose_avg = None
+    T_env_pose = (None, None)
 
     if len(detected_ref_tags) > 0:
         # get T tag poses wrt each reference tag
@@ -87,18 +87,22 @@ def get_state_estimate_T(
         
         # slow down updates for debugging
         # time.sleep(1)
+
+        if not quiet:
+            print("\n=================================================")
+            print("\nT state estimates from each detected T tag:")
         
         # get T poses in env frame (as (x,y), theta)
         T_env_poses = {ref_tag_id:
-            tag_poses_to_T_env_pose(poses, ref_tag_id)
+            tag_poses_to_T_env_pose(poses, ref_tag_id, quiet)
             for ref_tag_id, poses in tag_poses_wrt_ref.items()}
 
         # debugging...
         if not quiet:
-            print("T state estimates from each detected reference tag:")
+            print("\nT state estimates from each detected reference tag:")
             for tag_id, pose in T_env_poses.items():
                 if pose is not None:
-                    print(f' |-- {tag_id} | pos: {env2real(pose[0])}, rot: {math.degrees(pose[1]):3.3f}')
+                    print(f' |----- {tag_id} | pos: {env2real(pose[0])}, rot: {math.degrees(pose[1]):3.3f}')
 
         positions = [pose[0] 
             for pose in list(T_env_poses.values()) if pose is not None]
@@ -106,23 +110,24 @@ def get_state_estimate_T(
             for pose in list(T_env_poses.values()) if pose is not None]
 
         if len(positions) > 0:
-            T_env_pose_avg = (
-                np.mean(np.vstack(positions), axis=0),
-                np.mean(np.vstack(angles)))
-
+            T_env_pose = (
+                # np.mean(np.vstack(positions), axis=0),
+                # np.mean(np.vstack(angles))
+                np.median(np.vstack(positions), axis=0),
+                np.median(np.vstack(angles))
+            )
             # debugging
             if not quiet:
                 np.set_printoptions(precision=3, suppress=True)
-                T_env_position = T_env_pose_avg[0]
-                T_env_angle = math.degrees(T_env_pose_avg[1])
-                T_real_position = env2real(T_env_pose_avg[0])
+                T_env_position = T_env_pose[0]
+                T_env_angle = math.degrees(T_env_pose[1])
+                T_real_position = env2real(T_env_pose[0])
                 T_real_angle = T_env_angle
-                print(f"T state estimate:")
+                print(f"\nT state estimate:")
                 print(f" |-- position  (env): {T_env_position}")
                 print(f" |----- angle  (env): {T_env_angle:3.3f}")
                 print(f" |-- position (real): {T_real_position}")
                 print(f" |----- angle (real): {T_real_angle:3.3f}")
-                print(f"\n")
 
             ok = True
 
@@ -138,7 +143,28 @@ def get_state_estimate_T(
         else:
             visualize(color_img)
     
-    return ok, T_env_pose_avg
+    return ok, T_env_pose
+
+def get_state_estimate_T_retry(
+    april_tag, cam, 
+    ref_ids=TAG_ORIGINS.keys(), 
+    mov_ids=T_TAG_ORIGINS.keys(), 
+    quiet=True, show_cam=True, 
+    show_depth=False, max_attempts=10):
+
+    for _ in range(max_attempts):
+        ok, (position, angle) = \
+            get_state_estimate_T(
+                april_tag, cam,
+                ref_ids, mov_ids,
+                quiet, show_cam,
+                show_depth)
+        if ok:
+            return True, (position, angle)
+    if not quiet:
+        print(f"failed to get state estimate in {max_attempts} attempts...")
+        print(f"using stale state estimate ;-;")
+    return False, (None, None)
 
 def main():
 
@@ -146,10 +172,11 @@ def main():
     default_mov_ids = T_TAG_ORIGINS.keys()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', "--show-depth", action="store_true", help="Show depth image.")
+    parser.add_argument('-d', "--show-depth", action="store_true", help="Show depth image.")
     parser.add_argument('-r', '--ref-ids', nargs="+", type=int, default=default_ref_ids)
     parser.add_argument('-m', '--mov-ids', nargs="+", type=int, default=default_mov_ids)
     parser.add_argument('-q', '--quiet', action='store_true')
+    parser.add_argument('-a', '--max-attempts', type=int, default=100)
     args = parser.parse_args()
 
     if len(args.ref_ids) < 1:
@@ -171,11 +198,15 @@ def main():
     # cv2.namedWindow("RealsenseAprilTag", cv2.WINDOW_AUTOSIZE)
 
     while True:
-        ok, (position, angle) = get_state_estimate_T(april_tag, cam, 
+        ok, (position, angle) = get_state_estimate_T_retry(
+            april_tag, cam, 
             ref_ids=args.ref_ids, 
             mov_ids=args.mov_ids, 
             quiet=args.quiet, 
-            show_depth=args.show_depth)
+            show_depth=args.show_depth,
+            max_attempts=args.max_attempts)
+        if not ok:
+            print("state estimate failed")
 
         k = cv2.waitKey(1)
         if k == 27:  # wait for ESC key to exit
