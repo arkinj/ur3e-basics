@@ -20,7 +20,7 @@ TAG_UNIT = 1000.0 # okay as long as we specify tag length in mm for detector?
 # distance units in mm
 # (x, y, theta) in (mm, mm, radians)
 ARM_ORIGIN = np.array([0, 0]) # choose arm origin as ref
-ENV_ORIGIN = np.array([-250, 100]) # need to calibrate this?
+ENV_ORIGIN = np.array([-250-6, 100-6]) # -6 to account for 512x512 inc walls
 # multiple ref tags
 TAG_ORIGINS = {
     0: np.array([-400+37,   0+37], dtype=float),
@@ -137,11 +137,12 @@ def tag_poses_to_T_env_pose(tag_poses, ref_tag_id, quiet=True):
         for i, (position, angle) in enumerate(zip(positions, angles)):
             tag_id = tag_ids[i]
             dashes = 4 - len(str(tag_id))
-            print(f' | |{"-"*dashes} {tag_id} | pos: {position}, rot: {math.degrees(angle):3.3f}')
+            print(f' | |{"-"*dashes} {tag_id} | pos: {env2real(position)}, rot: {math.degrees(angle):3.3f}')
             
-    # angle = np.mean(angles)
-    # position = np.mean(positions, axis=0)
     angle = np.median(angles)
     position = np.median(positions, axis=0)
+    # angle = np.median(angles)
+    # position = np.median(positions, axis=0)
+
     return position, angle
     
