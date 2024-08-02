@@ -34,8 +34,18 @@ RUN pip install matplotlib
 
 #Some new package installations for running the Diffusion Policy
 RUN pip install diffusers 
+RUN pip install sk-video
+RUN pip install tqdm
 RUN pip install torch
-RUN pip install sk-video, tqdm
+RUN pip install zarr
+RUN pip install --upgrade scipy
+RUN pip install gym
+RUN pip install pygame
+RUN pip install pymunk
+RUN pip install shapely
+RUN pip install scikit-image
+RUN pip install ipython
+RUN pip install gdown
 
 # Install an updated version of cmake
 RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null
@@ -52,7 +62,7 @@ RUN sh \
   > /etc/apt/sources.list.d/ros-latest.list'
 RUN wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
 RUN apt-get update && apt-get install python3-catkin-tools -y
-
+RUN apt install python-is-python3
 # Setup ROS catkin workspace using catkin tools
 WORKDIR /catkin_ws
 RUN mkdir src

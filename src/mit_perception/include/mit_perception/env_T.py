@@ -361,18 +361,20 @@ class PushTEnv(gym.Env):
 
         if action_env is not None:
             self.latest_action = action_env
-            # perform action with real arm
+            # action_env is ? x 2 array of poses to move through
+            # perform action with real arm, see definition in move_utils.py
             self.agent.position, self.agent.velocity = \
                 perform_action_env(move_group_arm, action_env)
 
             # update state for T block, angle is [-pi, pi) or [0, 2pi) ?
+            # see definition in state_estimator_T.py
             ok, (position, angle) = \
                 get_state_estimate_T_retry(april_tag, cam)
             if ok:
                 self.position = position
                 self.angle = angle
 
-        return compute_step_result()
+        return self.compute_step_result()
 
     def render(self, mode):
         return self._render_frame(mode)

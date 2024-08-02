@@ -12,7 +12,7 @@ import actionlib
 from robotiq_2f_gripper_msgs.msg import CommandRobotiqGripperFeedback, CommandRobotiqGripperResult, CommandRobotiqGripperAction, CommandRobotiqGripperGoal
 from robotiq_2f_gripper_control.robotiq_2f_gripper_driver import Robotiq2FingerGripperDriver as Robotiq
 
-from math import pi, tau, dist, fabs, cos, sin
+from math import pi, tau, dist, fabs, cos, sin, ceil
 
 from std_msgs.msg import String
 from moveit_commander.conversions import pose_to_list
@@ -121,62 +121,199 @@ def generate_circle_poses(pose_center, r, n, frame_id=None):
   # print(poses)
   return poses
 
-def move_to_pose(move_group_arm, pose_goal, manual=True, dry_run=False, confirm_twice=False, idx=None):
-  p = pose_goal.pose.position
-  if idx is not None:
-    print(f"\ngoal pose {i :2d}: ({p.x :.4f}, {p.y :.4f}, {p.z :.4f})")
-  else:
-    print(f"\ngoal pose: ({p.x :.4f}, {p.y :.4f}, {p.z :.4f})")
+
+
+
+############################################
+###   BEGIN RELEVANT CODE TO STEP_REAL   ###
+############################################
+
+def move_to_pose(
+  move_group_arm, 
+  pose_goal, 
+  manual=True, 
+  dry_run=False, 
+  confirm_twice=False, 
+  idx=None, 
+  quiet=False):
+  """
+  move arm to goal pose(s)
+
+  Args:
+    move_group_arm: arm
+    pose_goal: pose or list of poses to move to
+    manual: if True, asks for confirmation before plan/move
+    dry_run: if True, disables actual movement
+    confirm_twice: if True, only asks confirmation for move
+    idx: index for debugging purposes if repeatedly calling
+    quiet: suppress all non-essential logging
+  
+  Returns:
+    ok: whether or not plan and move was successful
+    move_time: how long it took to move (or None if failure)
+  """
+
+  ok = False
+  # pose goal can be list of poses, but if not, make it one first
+  if not isinstance(pose_goal, list):
+    pose_goal = [pose_goal]
+  
+  if not quiet:
+    # print some useful data
+    positions = [pose.pose.position for pose in pose_goal]
+    if idx is not None:
+      for i, p in enumerate(positions):
+        print(f"\ngoal pose {idx :2d} step {i}: ({p.x :.4f}, {p.y :.4f}, {p.z :.4f})")
+    else:
+      for p in positions:
+        print(f"\ngoal pose: ({p.x :.4f}, {p.y :.4f}, {p.z :.4f})")
 
   if manual and confirm_twice:
     input("Press enter to plan to goal pose...")
-  else:
+  elif not quiet:
     print("planning goal pose...")
+
   if not dry_run:
-    move_group_arm.set_pose_target(pose_goal)
-  else:
+    # try to plan poses, may be unsuccessful
+    try:
+      move_group_arm.set_pose_targets(pose_goal)
+    except:
+      # failed to plan, notify caller
+      return ok, None
+  elif not quiet:
     print("dry run, we won't actually move arm :)")
 
   # Move to the pose goal
   if manual:
     input("Press enter to move to the goal pose...")
-  else:
+  elif not quiet:
     print("moving to the goal pose...")
+
   if not dry_run:
     s = time.time()
-    success = move_group_arm.go(wait=True) 
+    # try to move the arm
+    ok = move_group_arm.go(wait=True)
     # Stop and Clear after execution
     move_group_arm.stop()
     move_group_arm.clear_pose_targets()
-    return time.time() - s
-  else:
+    return ok, time.time() - s
+  elif not quiet:
     print("dry run, we won't actually move arm :)")
-    return None
+    return ok, None
 
-def move_to_poses(move_group_arm, pose_goals, manual=True, dry_run=False, confirm_twice=False):
+
+def move_to_poses(
+  move_group_arm, 
+  pose_goals,
+  manual=True, 
+  dry_run=False, 
+  confirm_twice=False,
+  quiet=False, 
+  stride=1):
+  """
+  move arm through sequence of poses in steps, 
+  by partitioning the sequence, 
+  and calling move_to_pose on each part
+
+  Args:
+    move_group_arm: arm
+    pose_goals: list of poses to move through
+    manual: if True, asks for confirmation before plan/move
+    dry_run: if True, disables actual movement
+    confirm_twice: if True, only asks confirmation for move
+    quiet: suppress all non-essential logging
+    stride: how many poses to plan at a time
+  
+  Returns:
+    ok: whether or not all moves were successful
+    move_time: how long each move took (or None if failure)
+  """
+
+  # record move times in listposition =
   move_times = []
-  for i in range(len(pose_goals)):
-    move_times.append(move_to_pose(
-      move_group_arm, pose_goals[i], manual, dry_run, confirm_twice, i))
-  return move_times
+  for i in range(0, len(pose_goals), stride):
+    # choose j so that i:j is gives us stride poses 
+    j = min(i+stride, len(pose_goals))
+    # try to move to pose and record move time
+    ok, move_time = move_to_pose(
+      move_group_arm, pose_goals[i:j], 
+      manual, dry_run, confirm_twice, i, quiet)
+    if ok:
+      move_times.append(move_time)
+    else:
+      # failed to plan or move, notify caller
+      return ok, None
+  return True, move_times
+
+
+def pose_to_xy(pose):
+  return np.ndarray(
+      [pose.pose.position.x, pose.pose.position.y])
+  
+
+def get_current_pose_as_xy(move_group_arm):
+  pose = move_group_arm.get_current_pose()
+  return pose_to_xy(get_current_pose_as_xy)
+
 
 def perform_action_env(move_group_arm, action_env):
+  """
+  performs action on real arm based on env_T positions
+  (see usage in env_T.py, step_real function)
+
+  Args:
+    move_group_arm: arm
+    action_env: numpy array of shape (n,2) of xy positions in env frame
+
+  Returns:
+    position: xy position of the arm after move, in env frame
+    velocity: velocity of arm, not sure if relevant
+  """
+  # hopefully this works with not just 1x2, should be able to broadcast
   action_arm = env2arm(action_env)
-  pose = move_group_arm.get_current_pose()
-  # record current pose for naive velocity estimate
-  last_pos = np.ndarray(
-      [pose.pose.position.x, pose.pose.position.y])
-  last_pos_env = arm2env(last_position)
+
+  # get current pose, also record it naive velocity estimate
+  old_pose = move_group_arm.get_current_pose()
+  old_position = pose_to_xy(old_pose)
 
   # move to goal pose based on action, do any of these need flip?
-  pose.pose.position.x = action_arm[0]
-  pose.pose.position.y = action_arm[1]
-  move_time = move_to_pose(move_group_arm, pose)
+  pose_goals = [None] * len(action_arm)
+  # generate poses by modifying x and y of current pose copy
+  for i, pos in enumerate(action_arm):
+    # copy current pose but change x and y for action
+    pose = copy.deepcopy(old_pose)
+    pose.position.x = pos[0]
+    pose.position.y = pos[1]
+    pose_goals[i] = pose
 
-  # update positions, does velocity actually matter?
-  position = action_env
-  velocity = (action_env - last_pos_env) / move_time
-  return position, velocity
+  # attempt to plan and move to all of these together
+  ok, move_times = move_to_poses(
+    move_group_arm, pose_goals, stride=len(pose_goals))
+
+  # below is more direct, assuming single movement, but same thing
+  # ok, move_time = move_to_pose(move_group_arm, pose_goals)
+  # move_times = [move_time]
+
+  # TODO: what to do when not ok?
+  # currently doesn't handle failure to plan/move
+  # next part will have errors in that case...
+
+  # update position, does velocity actually matter?
+  new_position = get_current_pose_as_xy(move_group_arm)
+
+  old_pos_env = arm2env(old_position)
+  new_pos_env = arm2env(new_position)
+
+  velocity = (new_pos_env - old_pos_env) / sum(move_times)
+
+  return new_pos_env, velocity
+
+############################################
+###    END RELEVANT CODE TO STEP_REAL    ###
+############################################
+
+
+
 
 
 def setup():

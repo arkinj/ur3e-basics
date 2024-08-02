@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import collections
 import pickle
-from skvideo.io import vwrite
+#from skvideo.io import vwrite
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from tqdm.auto import tqdm
 import pupil_apriltags as apriltag
@@ -22,7 +22,9 @@ from mit_perception.inference_utils import normalize_data, unnormalize_data
 import mit_perception.move_utils as arm
 from mit_perception.state_estimator_T import TAG_SIZES
 
-device = torch.device('cuda')
+import gdown
+
+device = torch.device('cpu')
 
 # parameters
 pred_horizon = 16
@@ -38,9 +40,42 @@ noise_pred_net = ConditionalUnet1D(
     input_dim=action_dim,
     global_cond_dim=obs_dim*obs_horizon
 )
-noise_pred_net.load_state_dict(torch.load('push_T_diffusion_model')) #Add to-do
+optimizer = torch.optim.AdamW(params=noise_pred_net.parameters(),lr=1e-4, weight_decay=1e-6)
 
-noise_pred_net = noise_pred_net.cuda()
+
+ckpt_path = "test.ckpt"
+#id = "1mHDr_DEZSdiGo9yecL50BBQYzR8Fjhl_&confirm=t"
+#gdown.download(id=id, output=ckpt_path, quiet=False)
+
+state_dict = torch.load(ckpt_path, map_location='cpu')
+noise_pred_net = noise_pred_net
+noise_pred_net.load_state_dict(state_dict)
+print('Pretrained weights loaded.')
+
+# example inputs
+noised_action = torch.randn((1, pred_horizon, action_dim))
+obs = torch.zeros((1, obs_horizon, obs_dim))
+diffusion_iter = torch.zeros((1,))
+print('noised_action',noised_action)
+print('noised_action_shape',noised_action.shape)
+
+# the noise prediction network
+# takes noisy action, diffusion iteration and observation as input
+# predicts the noise added to action
+noise = noise_pred_net(
+    sample=noised_action,
+    timestep=diffusion_iter,
+    global_cond=obs.flatten(start_dim=1))
+
+#checkpoint = torch.load('train_cpu.pt')
+#noise_pred_net.load_state_dict(checkpoint['model_state_dict'])
+#optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+# This command is not working due to the model being trained on GPU and the version of torch being CPU. Fix it
+#noise_pred_net.load_state_dict(torch.load('push_T_diffusion_model'),map_location=torch.device('cpu')) #Add to-do
+
+
+#noise_pred_net = noise_pred_net.cuda()
 
 num_diffusion_iters = 100
 noise_scheduler = DDPMScheduler(
@@ -74,6 +109,8 @@ done = False
 step_idx = 0
 
 # setup real arm
+
+#Have flags for what it should do
 move_group_arm, move_group_hand = arm.setup()
 arm.move_to_home_pose(move_group_arm)
 arm.close_gripper(move_group_hand)
@@ -200,6 +237,6 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
 print('Score: ', max(rewards))
 
 # visualize
-from IPython.display import Video
-vwrite('vis_1_01_5.gif', imgs)
+#from IPython.display import Video
+#vwrite('vis_1_01_5.gif', imgs)
 #Video('vis__1_01_5.mp4', embed=True, width=1024*4, height=1024*4)

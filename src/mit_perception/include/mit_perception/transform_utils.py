@@ -112,6 +112,9 @@ def tag_pose_to_T_env_pose(pose, tag_id, ref_tag_id):
     offset = T_TAG_ORIGINS[tag_id]
     pos = tag2real(translation[:2], ref_tag_id)
     rot_matrix = rotation.as_matrix()[:2,:2]
+    # T_trans_real = np.hstack((pos,translation[2:]*TAG_UNIT)) \
+    #     - rotation.apply(np.hstack((offset,translation[2:]*TAG_UNIT)))
+    # T_pos_real = T_trans_real[:2]
     T_pos_real = pos - rot_matrix.dot(offset)
     T_pos_env = real2env(T_pos_real)
     T_angle = rotation.as_rotvec()[2]
