@@ -294,6 +294,10 @@ def perform_action_env(move_group_arm, action_env, manual=False):
     pose = copy.deepcopy(old_pose)
     pose.position.x = -action_arm[i,0]
     pose.position.y = action_arm[i,1]
+    # pose.orientation.x = 0
+    # pose.orientation.y = 1
+    # pose.orientation.z = 0
+    # pose.orientation.w = 0
     pose_goals[i] = pose
 
   # # attempt to plan and move to all of these together
@@ -400,9 +404,17 @@ def move_to_home_pose(move_group_arm, manual=True):
   print('Time taken to go home: ', time.time() - s)
  
   pose_goal = move_group_arm.get_current_pose()
-  pose_goal.pose.position.x = -0.1688111302792703
-  pose_goal.pose.position.y = 0.35195621031298655
-  pose_goal.pose.position.z = 0.3196369615044568
+  # pose_goal.pose.position.x = -0.1688111302792703
+  # pose_goal.pose.position.y = 0.35195621031298655
+  # pose_goal.pose.position.z = 0.3196369615044568
+  pose_goal.pose.orientation.x = 0
+  pose_goal.pose.orientation.y = 1
+  pose_goal.pose.orientation.z = 0
+  pose_goal.pose.orientation.w = 0
+  move_group_arm.set_pose_target(pose_goal)
+  success = move_group_arm.go(wait=True)
+  move_group_arm.stop()
+  move_group_arm.clear_pose_targets()
 
 def close_gripper(move_group_hand, manual=True):
   # Close the gripper

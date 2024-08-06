@@ -17,8 +17,9 @@ import cv2
 @click.option('-s', '--simulation', is_flag=True, default=False)
 @click.option('-mg', '--move-gripper', is_flag=True, default=False)
 @click.option('-na', '--no-arm', is_flag=True, default=False)
+@click.option('-k', '--keyboard', is_flag=True, default=False)
 
-def main(output, render_size, control_hz, simulation, move_gripper, no_arm):
+def main(output, render_size, control_hz, simulation, move_gripper, no_arm, keyboard):
     """
     Collect demonstration for the Push-T task.
     
@@ -119,7 +120,12 @@ def main(output, render_size, control_hz, simulation, move_gripper, no_arm):
             
             # get action from mouse
             # None if mouse is not close to the agent
-            act = agent.act(obs)
+            if not keyboard:
+                act = agent.act(obs)
+            else:
+                act_str = input("enter x and y (env, space separated):\n").split(" ")
+                act = list(map(int, act_str))
+                
             # print(act)
             # print(act, obs)
             # act = np.random.rand((2))*512
@@ -144,7 +150,7 @@ def main(output, render_size, control_hz, simulation, move_gripper, no_arm):
                 action = np.array(act).reshape((1,2)) if act is not None else None
                 obs, coverage, reward, done, info = env.step_real(action, move_group_arm, april_tag, cams)
                 np.set_printoptions(precision=3, suppress=True)
-                print(obs[2:4])
+                # print(obs[2:4])
             img = env.render(mode='human')
 
             # print(obs, coverage, reward, don  e, info)

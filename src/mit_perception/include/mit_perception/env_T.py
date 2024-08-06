@@ -31,6 +31,7 @@ from skvideo.io import vwrite
 from IPython.display import Video
 import gdown
 import os
+import time
 
 from mit_perception.move_utils import perform_action_env
 from mit_perception.state_estimator_T import (
@@ -239,15 +240,17 @@ class PushTEnv(gym.Env):
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 10}
     reward_range = (0., 1.)
 
-    def __init__(self,x0,y0, mass,friction,length,
+    def __init__(self,x0,y0,theta0, mass,friction,length,
             legacy=False,
             block_cog=None, damping=None,
             render_action=True,
             render_size=96,
             reset_to_state=None,
+            draw_grid=True,
         ):
         self.x0 = x0
         self.y0 = y0
+        self.theta0 = theta0
         self.seed(self.x0,self.y0)
         self.window_size = ws = 512  # The size of the PyGame window
         self.render_size = render_size
@@ -298,9 +301,12 @@ class PushTEnv(gym.Env):
         self.mass=mass
         self.length=length
 
+        self.draw_grid = draw_grid
+
     def reset(self):
         x0 = self.x0
         y0 = self.y0
+        theta0 = self.theta0
         self._setup()
         if self.block_cog is not None:
             self.block.center_of_gravity = self.block_cog
@@ -314,7 +320,7 @@ class PushTEnv(gym.Env):
                 391.63782668,  33.2630066,  #Home
                 x0, y0, #T
                 #350, 300, end effector
-                0*np.pi/4#0.1 * 2 * np.pi - np.pi
+                theta0# 0*np.pi/4#0.1 * 2 * np.pi - np.pi
                 ])
         self._set_state(state)
 
@@ -370,13 +376,15 @@ class PushTEnv(gym.Env):
             # print(self.agent.position)
             self.agent.position = tuple(
                 perform_action_env(move_group_arm, action_env, manual=False))
+            # time.sleep(0.1)
             self.agent.velocity = (0, 0)
-            
-            # update state for T block, angle is [-pi, pi) or [0, 2pi) ?
-            # see definition in state_estimator_T.py
+
+        # update state for T block, angle is [-pi, pi) or [0, 2pi) ?
+        # see definition in state_estimator_T.py
         ok, (position, angle) = \
-            get_state_estimate_T_retry(april_tag, cam, quiet=True)
+            get_state_estimate_T_retry(april_tag, cam, quiet=False)
         # print(ok)
+        # print(ok, position, angle)
         if ok:
             self.block.position = tuple(position)
             # print(position)
@@ -398,9 +406,9 @@ class PushTEnv(gym.Env):
         def act(obs):
             act = None
             mouse_position = pymunk.pygame_util.from_pygame(Vec2d(*pygame.mouse.get_pos()), self.screen)
-            if self.teleop or (mouse_position - self.agent.position).length < 30:
-                self.teleop = True
-                act = mouse_position
+            # if self.teleop or (mouse_position - self.agent.position).length < 30:
+            self.teleop = True
+            act = mouse_position
             return act
         return TeleopAgent(act)
 
@@ -446,6 +454,26 @@ class PushTEnv(gym.Env):
         self.screen = canvas
 
         draw_options = DrawOptions(canvas)
+
+        # draw debugging grid
+        if self.draw_grid:
+            width = 24
+            grid = [
+                # x lines
+                ((5, 106), (506, 106), width),
+                ((5, 206), (506, 206), width),
+                ((5, 306), (506, 306), width),
+                # y lines
+                ((156, 5), (156, 384), width),
+                ((256, 5), (256, 384), width),
+                ((356, 5), (356, 384), width),
+                # end of table roughly
+                ((5, 384+2), (506, 384+2), 4),
+            ]
+            for start_pos, end_pos, w in grid:
+                pygame.draw.line(canvas, pygame.Color('LightBlue'), start_pos, end_pos, w)
+            for start_pos, end_pos, w in grid[:-1]:
+                pygame.draw.line(canvas, pygame.Color('DarkBlue'), start_pos, end_pos, 1)
 
         # Draw goal pose.
         goal_body = self._get_goal_pose_body(self.goal_pose)
@@ -555,10 +583,12 @@ class PushTEnv(gym.Env):
         self.space.add(*walls)
 
         # Add agent, block, and goal zone.
-        self.agent = self.add_circle((256, 400), 15)
-        self.block = self.add_tee((256, 300), 0)
+        self.agent = self.add_circle((256, 400), 25/2)
+        # self.block = self.add_tee((256, 300), 0)
+        self.block = self.add_tee((self.x0, self.y0), self.theta0)
         self.goal_color = pygame.Color('LightGreen')
         self.goal_pose = np.array([256,256,np.pi/4])  # x, y, theta (in radians)
+        # self.goal_pose = np.array([256+100,256-100,np.pi/4])
 
         # Add collision handeling
         self.collision_handeler = self.space.add_collision_handler(0, 0)

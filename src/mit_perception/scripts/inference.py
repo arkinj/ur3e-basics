@@ -20,7 +20,7 @@ from mit_perception.network import ConditionalUnet1D
 from mit_perception.inference_utils import normalize_data, unnormalize_data
 
 import mit_perception.move_utils as arm
-from mit_perception.state_estimator_T import TAG_SIZES
+from mit_perception.state_estimator_T import TAG_SIZES, get_state_estimate_T_retry
 from mit_perception.apriltag_utils import RealsenseCam, AprilTag
 
 import gdown
@@ -112,38 +112,12 @@ noise_scheduler = DDPMScheduler(
 )
 
 # limit enviornment interaction to 200 steps before termination
-max_steps = 100
+max_steps = 400
 
-#Initialize the PushT environment. 
-# The env class has been modified to include (x0,y0), which are the init coord of the T-block
-env_real = PushTEnv(x0=256,y0=256,mass=0.1,friction=1,length=4)
-if args.sim:
-    env_sim = PushTEnv(x0=256,y0=256,mass=0.1,friction=1,length=4)
 
-# get first observation
-obs_real = env_real.reset()
-if args.sim:
-    obs_sim = env_sim.reset()
-
-# keep a queue of last 2 steps of observations
-obs_real_deque = collections.deque(
-    [obs_real] * obs_horizon, maxlen=obs_horizon)
-if args.sim:
-    obs_sim_deque = collections.deque(
-        [obs_sim] * obs_horizon, maxlen=obs_horizon)
-
-# save visualization and rewards
-imgs_real = [env_real.render(mode=render_mode)]
-rewards_real = list()
-if args.sim:
-    imgs_sim = [env_sim.render(mode=render_mode)]
-    rewards_sim = list()
-
-done = False
-step_idx = 0
 
 # setup real arm
-
+block_x, block_y = 156, 356
 #Have flags for what it should do
 if not args.sim:
     move_group_arm, move_group_hand = arm.setup()
@@ -170,6 +144,43 @@ if not args.sim:
     # tag size in meters, or dict of tag_size: tag_ids
     april_tag = AprilTag(tag_size=TAG_SIZES) 
 
+    ok, (position, angle) = get_state_estimate_T_retry(april_tag, cams, quiet=True)
+    print(ok, position, angle)
+    if ok:
+        block_x, block_y = tuple(position)
+        block_theta = -angle
+
+
+
+#Initialize the PushT environment. 
+# The env class has been modified to include (x0,y0), which are the init coord of the T-block
+env_real = PushTEnv(x0=block_x,y0=block_y,theta0=block_theta,mass=0.1,friction=1,length=4,draw_grid=True)
+if args.sim:
+    env_sim = PushTEnv(x0=block_x,y0=block_y,theta0=block_theta,mass=0.1,friction=1,length=4)
+
+# get first observation
+obs_real = env_real.reset()
+if args.sim:
+    obs_sim = env_sim.reset()
+
+# keep a queue of last 2 steps of observations
+obs_real_deque = collections.deque(
+    [obs_real] * obs_horizon, maxlen=obs_horizon)
+if args.sim:
+    obs_sim_deque = collections.deque(
+        [obs_sim] * obs_horizon, maxlen=obs_horizon)
+
+# save visualization and rewards
+imgs_real = [env_real.render(mode=render_mode)]
+rewards_real = list()
+if args.sim:
+    imgs_sim = [env_sim.render(mode=render_mode)]
+    rewards_sim = list()
+
+done = False
+step_idx = 0
+
+
 #Manually encode the stats for min and max values of the obs and action
 obs_max = np.array([496.14618  , 510.9579   , 439.9153   , 485.6641   ,   6.2830877])
 obs_min= np.array([1.3456424e+01, 3.2938293e+01, 5.7471767e+01, 1.0827995e+02, 2.1559125e-04])
@@ -184,6 +195,8 @@ stats_action = {'max':action_max,'min':action_min}
 #file.close()
 #noisy_action_list = data['noise']
 i_idx=0
+
+input("press enter to start the loop :)\n")
 
 seed=1000
 torch.manual_seed(seed=seed)
@@ -262,7 +275,7 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
                     env_sim.step(action[i])
             else:
                 obs_real, coverage_real, reward_real, done_real, info_real = \
-                    env_real.step_real(action[i:i+N_idx].reshape((1,2)), move_group_arm, april_tag, cams)
+                    env_real.step_real(action[i:i+N_idx].reshape((-1,2)), move_group_arm, april_tag, cams)
             # print("Real:",obs_real,"Sim:",obs_sim)
 
             # save observations
@@ -273,15 +286,19 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
             obs_real_deque.append(obs_sim if args.sim else obs_real)
             # and reward/vis
             rewards_real.append(reward_sim if args.sim else reward_real)
+            if reward_real>0.3:
+                N_idx=1
+            if reward_real>0.7:
+                done=True
   
-            print('reward',reward_real)
+            print('reward',reward_sim if args.sim else reward_real)
             imgs_real.append(env_sim.render(mode=render_mode) if args.sim else env_real.render(mode=render_mode))
 
             print(step_idx)
             # update progress bar
             step_idx += 1
             pbar.update(1)
-            pbar.set_postfix(reward=reward_real)
+            pbar.set_postfix(reward=reward_sim if args.sim else reward_real)
             if step_idx > max_steps:
                 done = True
             if done:

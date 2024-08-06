@@ -26,6 +26,42 @@ from mit_perception.transform_utils import (
     env2real,
     tag_poses_to_T_env_pose)
 
+
+
+# https://stackoverflow.com/questions/11130156
+# Define a context manager to suppress stdout and stderr.
+class suppress_stdout_stderr(object):
+    '''
+    A context manager for doing a "deep suppression" of stdout and stderr in 
+    Python, i.e. will suppress all print, even if the print originates in a 
+    compiled C/Fortran sub-function.
+       This will not suppress raised exceptions, since exceptions are printed
+    to stderr just before a script exits, and after the context manager has
+    exited (at least, I think that is why it lets exceptions through).      
+
+    '''
+    def __init__(self):
+        # Open a pair of null files
+        self.null_fds =  [os.open(os.devnull,os.O_RDWR) for x in range(2)]
+        # Save the actual stdout (1) and stderr (2) file descriptors.
+        self.save_fds = [os.dup(1), os.dup(2)]
+
+    def __enter__(self):
+        # Assign the null pointers to stdout and stderr.
+        os.dup2(self.null_fds[0],1)
+        os.dup2(self.null_fds[1],2)
+
+    def __exit__(self, *_):
+        # Re-assign the real stdout/stderr back to (1) and (2)
+        os.dup2(self.save_fds[0],1)
+        os.dup2(self.save_fds[1],2)
+        # Close all file descriptors
+        for fd in self.null_fds + self.save_fds:
+            os.close(fd)
+
+
+
+
 # sizes in meters, length does not include border
 SMALL_TAG_SIZE = 0.023
 LARGE_TAG_SIZE = 0.060
@@ -71,6 +107,10 @@ def visualize(
 
     cv2.imshow("Detected tags", img)
 
+    k = cv2.waitKey(1)
+    if k == 27:  # wait for ESC key to exit
+        cv2.destroyAllWindows()
+
 
 
 ############################################
@@ -106,7 +146,8 @@ def get_state_estimate_T(
     color_imgs = []
     depth_imgs = []
     for cam in cams:
-        tags, color_img, depth_img = detect_tags(april_tag, cam, return_imgs=True)
+        with suppress_stdout_stderr():
+            tags, color_img, depth_img = detect_tags(april_tag, cam, return_imgs=True)
         tag_dict = {tag.tag_id: tag for tag in tags}
         tag_dicts.append(tag_dict)
         color_imgs.append(color_img)
@@ -150,7 +191,7 @@ def get_state_estimate_T(
             
             # get T poses in env frame (as (x,y), theta)
             T_env_poses = {ref_tag_id:
-                tag_poses_to_T_env_pose(poses, ref_tag_id, quiet=True)
+                tag_poses_to_T_env_pose(poses, ref_tag_id, quiet=quiet)
                 for ref_tag_id, poses in tag_poses_wrt_ref.items()}
 
             # debugging...
@@ -284,7 +325,7 @@ def main():
             "243222071097",
             (1280, 720),
             (1280, 720),
-            30)]
+            30)][:1]
     # tag size in meters, or dict of tag_size: tag_ids
     april_tag = AprilTag(tag_size=TAG_SIZES) 
 

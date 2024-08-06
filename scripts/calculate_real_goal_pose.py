@@ -18,6 +18,8 @@ def main():
     ref_pos = np.array([0, 350])
     corner_offsets += goal_pos - ref_pos
 
+    corner_offsets[:,0] *= -1
+
     np.set_printoptions(precision=1, suppress=True)
     print(corner_offsets)
     

@@ -94,7 +94,7 @@ def real2tag(real_pos, tag_id):
 # center of mass of T wrt upper left corner of 120x120 bounding box
 # T_COM = (60, 285/7) ?? check this
 # "center" position is based on, wrt bounding box also
-T_CENTER = np.array([60, 30], dtype=float)
+T_CENTER = np.array([60, 0], dtype=float)
 
 T_TAG_ORIGINS = {
     # tags A, B, C, D (upper part of T)

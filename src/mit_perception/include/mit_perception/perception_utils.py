@@ -368,7 +368,8 @@ def preprocess_T_tag_rotations_in_ref_tag_frame(
 
   for tagM in tagM_s:
     tag_id = tagM.tag_id
-    if math.degrees(abs(angles[tag_id] - angle_consensus)) > overwrite_threshold:
+    if math.degrees(abs(angles[tag_id] - angle_consensus)) > overwrite_threshold or \
+          angles[tag_id] * angle_consensus < 0:
       # print(tag_id)
       R_tagM_tagS = t_tag_rots[tag_id] * R_consensus
       R_tagM_cam = R_tagM_tagS * R.inv(R_cam_tagS)
