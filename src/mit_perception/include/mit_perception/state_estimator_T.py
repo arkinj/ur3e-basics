@@ -43,6 +43,7 @@ def visualize(
     if show_depth and depth_img is None:
         print("show_depth set to True, must provide depth image!")
         return
+    depth_imgs = [None] * len(color_imgs)
 
     imgs = []
     
@@ -133,7 +134,7 @@ def get_state_estimate_T(
             #     for idx, pose in poses.items():
             #         # print(idx, pose[0], pose[1].as_rotvec(degrees=True))
             #         pos, angle = tag_pose_to_T_env_pose(pose, idx, tag_id)
-            #         real_pos = env2real(pos)
+            #         real_pos = env2real(pos)tag_pose_to_T_env_pose
             #         print(idx, real_pos, angle)
             
             # slow down updates for debugging
@@ -141,16 +142,16 @@ def get_state_estimate_T(
 
             if not quiet:
                 print("\n=================================================")
-                print(f"\n[CAM {cam_idx}] T state estimates from each detected T tag:")
+                print(f"\n[CAM {cam_idx}] T state estimates from detected T tags:")
             
             # get T poses in env frame (as (x,y), theta)
             T_env_poses = {ref_tag_id:
-                tag_poses_to_T_env_pose(poses, ref_tag_id, quiet)
+                tag_poses_to_T_env_pose(poses, ref_tag_id, quiet=quiet)
                 for ref_tag_id, poses in tag_poses_wrt_ref.items()}
 
             # debugging...
             if not quiet:
-                print(f"\n[CAM {cam_idx}] T state estimates from each detected reference tag:")
+                print(f"\n[CAM {cam_idx}] T state estimates from detected ref tags:")
                 for tag_id, pose in T_env_poses.items():
                     if pose is not None:
                         print(f' |----- {tag_id} | pos: {env2real(pose[0])}, rot: {math.degrees(pose[1]):3.3f}')
@@ -270,7 +271,7 @@ def main():
             "243222071097",
             (1280, 720),
             (1280, 720),
-            30)]
+            30)][:1]
     # tag size in meters, or dict of tag_size: tag_ids
     april_tag = AprilTag(tag_size=TAG_SIZES) 
 

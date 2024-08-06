@@ -40,7 +40,7 @@ def main():
     tag_active_pixel_ratio= 0.6 # Magic
   )
 
-  perception_utils.save_image(image,"src/mit_perception/img.png")
+  perception_utils.save_image(image,"src/mit_perception/scripts/img.png")
 
 if __name__ == "__main__":
   main()

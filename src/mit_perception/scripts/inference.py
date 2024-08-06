@@ -25,6 +25,27 @@ from mit_perception.apriltag_utils import RealsenseCam, AprilTag
 
 import gdown
 
+import argparse
+import cv2
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--download-model", action="store_true")
+parser.add_argument('-g', "--move-gripper", action="store_true")
+parser.add_argument('-s', "--sim", action="store_true")
+parser.add_argument('-o', "--output-path", type=str, default=None)
+args = parser.parse_args()
+
+default_base_path = "/catkin_ws/src/mit_perception/media/"
+if args.output_path is None:
+    args.output_path = default_base_path
+    if args.sim:
+        args.output_path += "push_T_sim_animation.mp4"
+    else:
+        args.output_path += "push_T_real_animation.mp4"
+
+
+render_mode='human'
+
 device = torch.device('cpu')
 
 # parameters
@@ -45,8 +66,9 @@ optimizer = torch.optim.AdamW(params=noise_pred_net.parameters(),lr=1e-4, weight
 
 
 ckpt_path = "test.ckpt"
-#id = "1mHDr_DEZSdiGo9yecL50BBQYzR8Fjhl_&confirm=t"
-#gdown.download(id=id, output=ckpt_path, quiet=False)
+if args.download_model:
+    id = "1mHDr_DEZSdiGo9yecL50BBQYzR8Fjhl_&confirm=t"
+    gdown.download(id=id, output=ckpt_path, quiet=False)
 
 state_dict = torch.load(ckpt_path, map_location='cpu')
 noise_pred_net = noise_pred_net
@@ -55,7 +77,7 @@ print('Pretrained weights loaded.')
 
 # example inputs
 noised_action = torch.randn((1, pred_horizon, action_dim))
-obs = torch.zeros((1, obs_horizon, obs_dim))
+obs_real = torch.zeros((1, obs_horizon, obs_dim))
 diffusion_iter = torch.zeros((1,))
 print('noised_action',noised_action)
 print('noised_action_shape',noised_action.shape)
@@ -66,7 +88,7 @@ print('noised_action_shape',noised_action.shape)
 noise = noise_pred_net(
     sample=noised_action,
     timestep=diffusion_iter,
-    global_cond=obs.flatten(start_dim=1))
+    global_cond=obs_real.flatten(start_dim=1))
 
 #checkpoint = torch.load('train_cpu.pt')
 #noise_pred_net.load_state_dict(checkpoint['model_state_dict'])
@@ -94,41 +116,59 @@ max_steps = 100
 
 #Initialize the PushT environment. 
 # The env class has been modified to include (x0,y0), which are the init coord of the T-block
-env = PushTEnv(x0=256,y0=256,mass=0.1,friction=1,length=4)
+env_real = PushTEnv(x0=256,y0=256,mass=0.1,friction=1,length=4)
+if args.sim:
+    env_sim = PushTEnv(x0=256,y0=256,mass=0.1,friction=1,length=4)
 
 # get first observation
-obs = env.reset()
+obs_real = env_real.reset()
+if args.sim:
+    obs_sim = env_sim.reset()
 
 # keep a queue of last 2 steps of observations
-obs_deque = collections.deque(
-    [obs] * obs_horizon, maxlen=obs_horizon)
+obs_real_deque = collections.deque(
+    [obs_real] * obs_horizon, maxlen=obs_horizon)
+if args.sim:
+    obs_sim_deque = collections.deque(
+        [obs_sim] * obs_horizon, maxlen=obs_horizon)
 
 # save visualization and rewards
-imgs = [env.render(mode='rgb_array')]
-rewards = list()
+imgs_real = [env_real.render(mode=render_mode)]
+rewards_real = list()
+if args.sim:
+    imgs_sim = [env_sim.render(mode=render_mode)]
+    rewards_sim = list()
+
 done = False
 step_idx = 0
 
 # setup real arm
 
 #Have flags for what it should do
-move_group_arm, move_group_hand = arm.setup()
-arm.move_to_home_pose(move_group_arm)
-pose = move_group_arm.get_current_pose()
-pose.pose.position.z = 0.265
-arm.move_to_pose(move_group_arm, pose.pose)
-#arm.open_gripper(move_group_hand)
-#arm.close_gripper(move_group_hand)
+if not args.sim:
+    move_group_arm, move_group_hand = arm.setup()
+    arm.move_to_home_pose(move_group_arm)
+    pose = move_group_arm.get_current_pose()
+    pose.pose.position.z = 0.265
+    arm.move_to_pose(move_group_arm, pose.pose)
+    if args.move_gripper:
+        arm.open_gripper(move_group_hand)
+        arm.close_gripper(move_group_hand)
 
-# Initialize the camera and AprilTag detector
-cam = RealsenseCam(
-    "317422075665", # cam serial?
-    (1280, 720), # color img size
-    (1280, 720), # depth img size
-    30 # frame rate
-)
-# tag size in meters, or dict of tag_size: tag_ids
-april_tag = AprilTag(tag_size=TAG_SIZES) 
+    # Initialize the camera and AprilTag detector
+    cams = [
+        RealsenseCam(
+            "317422075665",
+            (1280, 720), # color img size
+            (1280, 720), # depth img size
+            30), # frame rate
+        RealsenseCam(
+            "243222071097",
+            (1280, 720),
+            (1280, 720),
+            30)]
+    # tag size in meters, or dict of tag_size: tag_ids
+    april_tag = AprilTag(tag_size=TAG_SIZES) 
 
 #Manually encode the stats for min and max values of the obs and action
 obs_max = np.array([496.14618  , 510.9579   , 439.9153   , 485.6641   ,   6.2830877])
@@ -151,16 +191,16 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
     while not done:
         B = 1
         # stack the last obs_horizon (2) number of observations
-        obs_seq = np.stack(obs_deque)
+        obs_real_seq = np.stack(obs_real_deque)
         # normalize observation
-        nobs = normalize_data(obs_seq, stats=stats_obs) 
+        nobs_real = normalize_data(obs_real_seq, stats=stats_obs) 
         # device transfer
-        nobs = torch.from_numpy(nobs).to(device, dtype=torch.float32)
+        nobs_real = torch.from_numpy(nobs_real).to(device, dtype=torch.float32)
 
         # infer action
         with torch.no_grad():
             # reshape observation to (B,obs_horizon*obs_dim)
-            obs_cond = nobs.unsqueeze(0).flatten(start_dim=1)
+            obs_real_cond = nobs_real.unsqueeze(0).flatten(start_dim=1)
 
             # initialize action from Guassian noise
             #noisy_action  = noisy_action_list[i_idx]
@@ -176,7 +216,7 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
                 noise_pred = noise_pred_net(
                     sample=naction,
                     timestep=k,
-                    global_cond=obs_cond
+                    global_cond=obs_real_cond
                 )
 
                 # inverse diffusion step (remove noise)
@@ -187,10 +227,10 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
                 ).prev_sample
            
                 
-                if rewards==[]:
-                    reward = torch.tensor(0)
+                if rewards_real==[]:
+                    reward_real = torch.tensor(0)
                 else:
-                    reward = rewards.pop()
+                    reward_real = rewards_real.pop()
                 
         # unnormalize action
         naction = naction.detach().to('cpu').numpy()
@@ -216,32 +256,58 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
             Execution: action[i] -[X,Y] --> scaled end effector pose in the PoseStamped object -->move_pose() 
             Observation collection: April_Tag1, April_Tag2 (new location)--> obs vector [5X1] , [x_end, y_end, x_ob, y_ob, theta_ob]
             """
-            obs, coverage, reward, done, info = env.step_real(action[i:i+N_idx].reshape((1,2)), move_group_arm, april_tag, cam)
-            
+            # TODO: fix this so it's not just one at a time
+            if args.sim:
+                obs_sim, coverage_sim, reward_sim, done_sim, info_sim = \
+                    env_sim.step(action[i])
+            else:
+                obs_real, coverage_real, reward_real, done_real, info_real = \
+                    env_real.step_real(action[i:i+N_idx].reshape((1,2)), move_group_arm, april_tag, cams)
+            # print("Real:",obs_real,"Sim:",obs_sim)
+
             # save observations
-            info = env._get_info()
+            info = env_sim._get_info() if args.sim else env_real._get_info()
             shape = info['block_pose']
             
-            obs_deque.append(obs)
+            # TODO: fix this to make the sim argument make sense consistently
+            obs_real_deque.append(obs_sim if args.sim else obs_real)
             # and reward/vis
-            rewards.append(reward)
+            rewards_real.append(reward_sim if args.sim else reward_real)
   
-            print('reward',reward)
-            #imgs.append(env.render(mode='rgb_array'))
+            print('reward',reward_real)
+            imgs_real.append(env_sim.render(mode=render_mode) if args.sim else env_real.render(mode=render_mode))
+
             print(step_idx)
             # update progress bar
             step_idx += 1
             pbar.update(1)
-            pbar.set_postfix(reward=reward)
+            pbar.set_postfix(reward=reward_real)
             if step_idx > max_steps:
                 done = True
             if done:
                 break
         i_idx+=1
 # print out the maximum target coverage
-print('Score: ', max(rewards))
+# print('Score: ', max(rewards))
 
 # visualize
 #from IPython.display import Video
 #vwrite('vis_1_01_5.gif', imgs)
 #Video('vis__1_01_5.mp4', embed=True, width=1024*4, height=1024*4)
+
+#### VISUALIZATION ####
+
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.animation as animation
+
+frames = [] # for storing the generated images
+fig = plt.figure()
+for img in imgs_real:
+    frames.append([plt.imshow(img, cmap=cm.Greys_r,animated=True)])
+
+ani = animation.ArtistAnimation(fig, frames, interval=50, blit=True,
+                                repeat_delay=1000)
+print(args.output_path)
+ani.save(args.output_path)
+# plt.show()

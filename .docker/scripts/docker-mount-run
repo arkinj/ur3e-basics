@@ -3,6 +3,7 @@ docker run -it --net=host --privileged \
   --env="QT_X11_NO_MITSHM=1" \
   --volume="/dev:/dev" \
   --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+  --volume="${HOME}/.Xauthority:/root/.Xauthority:rw" \
   --volume="${PWD}/scripts":"/catkin_ws/scripts":rw \
   --volume="${PWD}/src/mit_robot":"/catkin_ws/src/mit_robot":rw \
   --volume="${PWD}/src/mit_perception":"/catkin_ws/src/mit_perception":rw \

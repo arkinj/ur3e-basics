@@ -364,21 +364,27 @@ class PushTEnv(gym.Env):
         self.n_contact_points = 0
 
         if action_env is not None:
-            self.latest_action = action_env
+            self.latest_action = tuple(action_env[-1])
             # action_env is ? x 2 array of poses to move through
             # perform action with real arm, see definition in move_utils.py
             # print(self.agent.position)
-            self.agent.position = list(
+            self.agent.position = tuple(
                 perform_action_env(move_group_arm, action_env, manual=False))
-
+            self.agent.velocity = (0, 0)
+            
             # update state for T block, angle is [-pi, pi) or [0, 2pi) ?
             # see definition in state_estimator_T.py
-            ok, (position, angle) = \
-                get_state_estimate_T_retry(april_tag, cam, quiet=False)
-            if ok:
-                self.position = position
-                self.angle = angle
+        ok, (position, angle) = \
+            get_state_estimate_T_retry(april_tag, cam, quiet=True)
+        # print(ok)
+        if ok:
+            self.block.position = tuple(position)
+            print(position)
+            self.block.angle = -angle
+            self.block.velocity = (0, 0)
 
+            self.space.step(0.0001)
+            
         return self.compute_step_result()
 
     def render(self, mode):
@@ -462,6 +468,7 @@ class PushTEnv(gym.Env):
             )
         img = cv2.resize(img, (self.render_size, self.render_size))
         if self.render_action:
+            print(f"[_render_frame] {self.latest_action}")
             if self.render_action and (self.latest_action is not None):
                 action = np.array(self.latest_action)
                 coord = (action / 512 * 96).astype(np.int32)

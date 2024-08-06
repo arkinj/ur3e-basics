@@ -160,4 +160,4 @@ if __name__ == "__main__":
   parser.add_argument('-g', '--generate-images', action='store_true')
   parser.add_argument('-c', '--continuous', action='store_true')
   args = parser.parse_args()
-  main(generate_images, continuous)
+  main(generate_images=True, continuous=True)

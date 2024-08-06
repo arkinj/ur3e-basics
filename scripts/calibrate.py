@@ -1,6 +1,6 @@
 import numpy as np 
 import pickle
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 """
 Goal of this script is to calibrate the action-space into a physically realizable space
 with the UR3e manipulator. The pickle file has stored data from diffusion policy runs, that can be 
@@ -50,12 +50,12 @@ def visualize(action_scaled,action_np):
     plt.show()
 
 if __name__ == '__main__':
-    #action_scaled, action_np = transform_action()
+    action_scaled, action_np = transform_action()
     #visualize(action_scaled, action_np)
     # breakpoint()
-#    breakpoint()import matplotlib.pyplot as plt
-    action_np = np.array([300,200]).reshape(1,2)
-    action_scaled = scale_action(action_np)
-    print(action_scaled)
+    # breakpoint()import matplotlib.pyplot as plt
+    #action_np = np.array([300,200]).reshape(1,2)
+    #action_scaled = scale_action(action_np)
+    #print(action_scaled)
     # action = np.array([0.14163782668203295, 0.1332630065958967])
     # print(unscale_action(action.reshape(1,2)))

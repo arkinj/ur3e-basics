@@ -315,6 +315,8 @@ def perform_action_env(move_group_arm, action_env, manual=False):
   new_position = get_current_pose_as_xy(move_group_arm)
 
   # old_pos_env = arm2env(old_position)
+  # flip for x axis
+  new_position[0] = -new_position[0]
   new_pos_env = arm2env(new_position)
 
   # velocity = (new_pos_env - old_pos_env) / sum(move_times)

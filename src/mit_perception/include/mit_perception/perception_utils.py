@@ -306,6 +306,8 @@ def get_tag_poses_in_ref_tag_frame(tags, ref_tag, verbose=False):
   p_tagS_cam_cam = -p_cam_tagS_cam
   # camera translation in stationary tag frame
   p_tagS_cam_tagS = R_tagS_cam.apply(p_tagS_cam_cam)
+  #p_tagS_cam_tagS = R_cam_tagS.apply(p_tagS_cam_cam)
+
 
   tagM_poses = {}
 
@@ -321,25 +323,17 @@ def get_tag_poses_in_ref_tag_frame(tags, ref_tag, verbose=False):
     p_cam_tagM_cam = tagM.pose_t.reshape(-1)
     # camera to moving tag translation in stationary tag frame
     p_cam_tagM_tagS = R_tagS_cam.apply(p_cam_tagM_cam)
+    #p_cam_tagM_tagS = R_cam_tagS.apply(p_cam_tagM_cam)
 
     # moving tag translation in stationary tag frame
     p_tagS_tagM_tagS = p_tagS_cam_tagS + p_cam_tagM_tagS
 
-    # trying something
-    p_tagS_tagM_cam = p_tagS_cam_cam + p_cam_tagM_cam
-    # p_tagS_tagM_tagS_alt = R_tagS_cam.apply(p_tagS_tagM_cam)
-
-    euler_angles = R_tagM_tagS.as_euler("XYZ")
-
-    # print(p_tagS_tagM_tagS)
     if verbose:
       np.set_printoptions(precision=3, suppress=True)
       print(f"{m_idx}: tagM translation in tagS frame:")
       print(p_tagS_tagM_tagS)
       print(f"{m_idx}: tagM rotation in tagS frame:")
       print(R_tagM_tagS.as_matrix())
-      print(f"{m_idx}: tagM rotation in XYZ euler angles (rad):")
-      print(euler_angles)
 
     translation = p_tagS_tagM_tagS
     rotation = R_tagM_tagS

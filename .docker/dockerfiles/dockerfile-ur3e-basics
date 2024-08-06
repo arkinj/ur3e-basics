@@ -20,7 +20,10 @@ RUN apt-get update && apt-get install -y \
   iputils-ping \
   iproute2 \
   usbutils \ 
-  python3-tk
+  python3-tk \
+  x11-xserver-utils \
+  xauth \
+  ffmpeg
   
 # Install various python packages
 RUN pip install -U numpy
@@ -46,6 +49,7 @@ RUN pip install shapely
 RUN pip install scikit-image
 RUN pip install ipython
 RUN pip install gdown
+RUN pip install click
 
 # Install an updated version of cmake
 RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null

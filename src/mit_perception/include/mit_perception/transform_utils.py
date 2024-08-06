@@ -23,10 +23,10 @@ ARM_ORIGIN = np.array([0, 0]) # choose arm origin as ref
 ENV_ORIGIN = np.array([-250-6, 100-6]) # -6 to account for 512x512 inc walls
 # multiple ref tags
 TAG_ORIGINS = {
-    0: np.array([-400+37,   0+37], dtype=float),
-    1: np.array([ 400-36,   0+37], dtype=float),
-    2: np.array([-250-37, 484-38], dtype=float),
-    3: np.array([ 250+38, 484-37], dtype=float)}
+    0: np.array([-250+37, 100+37], dtype=float),
+    1: np.array([ 250-38, 100+37], dtype=float),
+    2: np.array([-250+37, 484-38], dtype=float),
+    3: np.array([ 250-36, 484-37], dtype=float)}
 
 # NOTE: WE ARE GOING TO ASSUME ALL ANGLES ARE THE SAME FOR NOW
 # can also just construct experiment like that so it hsould be fine?
@@ -105,13 +105,89 @@ T_TAG_ORIGINS = {
     # tags E, F, G (lower part of T)
     8:  np.array([ 60,  45], dtype=float) - T_CENTER,
     9:  np.array([ 60,  75], dtype=float) - T_CENTER,
-    10: np.array([ 60, 105], dtype=float) - T_CENTER}
+    10: np.array([ 60, 105], dtype=float) - T_CENTER,
+    # side tags 
+    # upper left single
+    11: np.array([  0,  15], dtype=float) - T_CENTER, 
+    # top row of 4
+    12: np.array([  15,  0], dtype=float) - T_CENTER, 
+    13: np.array([  45,  0], dtype=float) - T_CENTER, 
+    14: np.array([  75,  0], dtype=float) - T_CENTER, 
+    15: np.array([ 105,  0], dtype=float) - T_CENTER, 
+    #
+    16: np.array([ 120, 15], dtype=float) - T_CENTER, 
+    #
+    17: np.array([ 105, 30], dtype=float) - T_CENTER, 
+    #
+    18: np.array([ 75,  45], dtype=float) - T_CENTER, 
+    19: np.array([ 75,  75], dtype=float) - T_CENTER, 
+    20: np.array([ 75, 105], dtype=float) - T_CENTER, 
+    #
+    21: np.array([ 60, 120], dtype=float) - T_CENTER, 
+    #
+    22: np.array([ 45, 105], dtype=float) - T_CENTER, 
+    23: np.array([ 45,  75], dtype=float) - T_CENTER, 
+    24: np.array([ 45,  45], dtype=float) - T_CENTER,
+    # 
+    25: np.array([ 15,  30], dtype=float) - T_CENTER, 
+}
+
+R_IDENTITY = R.from_rotvec(np.zeros(3)) 
+
+R_CCW_Z = R.from_rotvec(np.pi/2 * np.array([0, 0, 1]))
+R_CCW_Y = R.from_rotvec(np.pi/2 * np.array([0, 1, 0]))
+R_CCW_X = R.from_rotvec(np.pi/2 * np.array([1, 0, 0]))
+
+R_CW_Z = R.from_rotvec(-np.pi/2 * np.array([0, 0, 1]))
+R_CW_Y = R.from_rotvec(-np.pi/2 * np.array([0, 1, 0]))
+R_CW_X = R.from_rotvec(-np.pi/2 * np.array([1, 0, 0]))
+
+R_T_L = R_CW_Z * R_CW_Y
+R_T_U = R_CW_Z * R_CW_Y * R_CW_Z
+R_T_R = R_CW_Z * R_CW_Y * R_CW_Z * R_CW_Z
+R_T_D = R_CW_Z * R_CW_Y * R_CW_Z * R_CW_Z * R_CW_Z
+
+T_TAG_ROTATIONS = {
+    # flat tags
+    4: R_IDENTITY,
+    5: R_IDENTITY,
+    6: R_IDENTITY,
+    7: R_IDENTITY,
+    8: R_IDENTITY,
+    9: R_IDENTITY,
+    10: R_IDENTITY,
+    # side tags
+    11: R_T_L,
+    #
+    12: R_T_U,
+    13: R_T_U,
+    14: R_T_U,
+    15: R_T_U,
+    #
+    16: R_T_R,
+    #
+    17: R_T_D,
+    #
+    18: R_T_R,
+    19: R_T_R,
+    20: R_T_R,
+    #
+    21: R_T_D,
+    #
+    22: R_T_L,
+    23: R_T_L,
+    24: R_T_L,
+    #
+    25: R_T_D
+}
 
 def tag_pose_to_T_env_pose(pose, tag_id, ref_tag_id):
     translation, rotation = pose
     offset = T_TAG_ORIGINS[tag_id]
     pos = tag2real(translation[:2], ref_tag_id)
-    rot_matrix = rotation.as_matrix()[:2,:2]
+
+    rotation = R.inv(T_TAG_ROTATIONS[tag_id]) * rotation
+    rot_matrix = R.inv(rotation).as_matrix()[:2,:2]
     # T_trans_real = np.hstack((pos,translation[2:]*TAG_UNIT)) \
     #     - rotation.apply(np.hstack((offset,translation[2:]*TAG_UNIT)))
     # T_pos_real = T_trans_real[:2]
