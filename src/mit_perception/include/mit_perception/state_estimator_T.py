@@ -150,7 +150,7 @@ def get_state_estimate_T(
             
             # get T poses in env frame (as (x,y), theta)
             T_env_poses = {ref_tag_id:
-                tag_poses_to_T_env_pose(poses, ref_tag_id, quiet=quiet)
+                tag_poses_to_T_env_pose(poses, ref_tag_id, quiet=True)
                 for ref_tag_id, poses in tag_poses_wrt_ref.items()}
 
             # debugging...
@@ -197,6 +197,15 @@ def get_state_estimate_T(
     if len(positions_fused) > 0:
         position = sum(positions_fused) / len(positions_fused)
         angle = sum(angles_fused) / len(angles_fused)
+        if not quiet:
+            print("\n=================================================")
+            print("\n[FUSED] T state estimate:")
+            print(f" |-- position  (env): {position}")
+            print(f" |----- angle  (env): {angle:3.3f}")
+            print(f" |-- position (real): {env2real(position)}")
+            print(f" |----- angle (real): {angle:3.3f}")
+
+
     else:
         position = None
         angle = None
@@ -275,7 +284,7 @@ def main():
             "243222071097",
             (1280, 720),
             (1280, 720),
-            30)][:1]
+            30)]
     # tag size in meters, or dict of tag_size: tag_ids
     april_tag = AprilTag(tag_size=TAG_SIZES) 
 

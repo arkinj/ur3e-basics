@@ -16,8 +16,9 @@ import cv2
 @click.option('-hz', '--control_hz', default=10, type=int)
 @click.option('-s', '--simulation', is_flag=True, default=False)
 @click.option('-mg', '--move-gripper', is_flag=True, default=False)
+@click.option('-na', '--no-arm', is_flag=True, default=False)
 
-def main(output, render_size, control_hz, simulation, move_gripper):
+def main(output, render_size, control_hz, simulation, move_gripper, no_arm):
     """
     Collect demonstration for the Push-T task.
     
@@ -33,11 +34,14 @@ def main(output, render_size, control_hz, simulation, move_gripper):
     """
 
     if not simulation:
-        move_group_arm, move_group_hand = arm.setup()
-        arm.move_to_home_pose(move_group_arm)
-        pose = move_group_arm.get_current_pose()
-        pose.pose.position.z = 0.265
-        arm.move_to_pose(move_group_arm, pose.pose)
+        if not no_arm:
+            move_group_arm, move_group_hand = arm.setup()
+            arm.move_to_home_pose(move_group_arm)
+            pose = move_group_arm.get_current_pose()
+            pose.pose.position.z = 0.265
+            arm.move_to_pose(move_group_arm, pose.pose)
+        else:
+            move_group_arm = None
         if move_gripper:
             arm.open_gripper(move_group_hand)
             arm.close_gripper(move_group_hand)
@@ -116,7 +120,7 @@ def main(output, render_size, control_hz, simulation, move_gripper):
             # get action from mouse
             # None if mouse is not close to the agent
             act = agent.act(obs)
-            print(act)
+            # print(act)
             # print(act, obs)
             # act = np.random.rand((2))*512
             # print(pygame.mouse.get_pos())
@@ -139,9 +143,11 @@ def main(output, render_size, control_hz, simulation, move_gripper):
             else:
                 action = np.array(act).reshape((1,2)) if act is not None else None
                 obs, coverage, reward, done, info = env.step_real(action, move_group_arm, april_tag, cams)
+                np.set_printoptions(precision=3, suppress=True)
+                print(obs[2:4])
             img = env.render(mode='human')
 
-            # print(obs, coverage, reward, done, info)
+            # print(obs, coverage, reward, don  e, info)
             
             # regulate control frequency
             env.clock.tick(control_hz)

@@ -363,7 +363,7 @@ class PushTEnv(gym.Env):
         # note: anything that relies on self.space updates will be broken by this
         self.n_contact_points = 0
 
-        if action_env is not None:
+        if action_env is not None and move_group_arm is not None:
             self.latest_action = tuple(action_env[-1])
             # action_env is ? x 2 array of poses to move through
             # perform action with real arm, see definition in move_utils.py
@@ -379,9 +379,12 @@ class PushTEnv(gym.Env):
         # print(ok)
         if ok:
             self.block.position = tuple(position)
-            print(position)
+            # print(position)
             self.block.angle = -angle
             self.block.velocity = (0, 0)
+            if move_group_arm is None:
+                self.agent.position = (0, 0)
+                self.agent.velocity = (0, 0)
 
             self.space.step(0.0001)
             
@@ -468,7 +471,7 @@ class PushTEnv(gym.Env):
             )
         img = cv2.resize(img, (self.render_size, self.render_size))
         if self.render_action:
-            print(f"[_render_frame] {self.latest_action}")
+            # print(f"[_render_frame] {self.latest_action}")
             if self.render_action and (self.latest_action is not None):
                 action = np.array(self.latest_action)
                 coord = (action / 512 * 96).astype(np.int32)
