@@ -276,23 +276,13 @@ def get_color_and_depth_image(pipeline, display_image=False):
 
 
 # returns a dict of tag_id: (translation, rotation)
-def get_tag_poses_in_ref_tag_frame(tags, ref_tag, verbose=False):
-  # image = get_image(
-  #   pipeline=pipeline, display_images=False, silent=True
-  # )
-
-  # get tags as detection objects
-  # tags = get_tag_poses_in_camera_frame(
-  #   detector=detector,
-  #   image=image,
-  #   intrinsics=intrinsics,
-  #   tag_length=tag_length, #2.0, # inches
-  #   tag_active_pixel_ratio=tag_active_pixel_ratio, # 0.6, # Magic
-  #   as_detection=True
-  # )
-
+def get_tag_poses_in_ref_tag_frame(tags, ref_tag, t_tag_rots=None, verbose=False):
   # transforming pose estimates to stationary tag frame
   # reference: https://github.com/dawsonc/tello-x/blob/main/tellox/pilot.py
+
+  if t_tag_rots is not None:
+    preprocess_T_tag_rotations_in_ref_tag_frame(
+      tags, ref_tag, t_tag_rots)
 
   tagS = ref_tag # stationary tag (use this frame of reference)
   tagM_s = tags
@@ -340,3 +330,47 @@ def get_tag_poses_in_ref_tag_frame(tags, ref_tag, verbose=False):
     tagM_poses[m_idx] = (translation, rotation)
 
   return tagM_poses
+
+
+# returns a dict of tag_id: (translation, rotation)
+# this is very inefficient? fix that later
+def preprocess_T_tag_rotations_in_ref_tag_frame(
+  tags, ref_tag, t_tag_rots, verbose=False, overwrite_threshold=2):
+
+  tagS = ref_tag # stationary tag (use this frame of reference)
+  # filter out all tags not on T
+  tagM_s = [tag for tag in tags if tag.tag_id in t_tag_rots]
+
+  # rotations for stationary tag
+  R_cam_tagS = R.from_matrix(tagS.pose_R)
+  R_tagS_cam = R.inv(R_cam_tagS)
+
+  tagM_poses = {}
+
+  angles = {}
+
+  for tagM in tagM_s:
+    tag_id = tagM.tag_id
+    # rotations for moving tag
+    R_cam_tagM = R.from_matrix(tagM.pose_R)
+    R_tagM_cam = R.inv(R_cam_tagM)
+    # rotation for moving tag in stationary tag frame
+    R_tagM_tagS = R_tagM_cam * R_cam_tagS
+
+    R_sync = R.inv(t_tag_rots[tag_id]) * R_tagM_tagS
+    angle = R_sync.as_rotvec()[2]
+    angles[tag_id] = angle
+
+  angle_consensus = np.median(list(angles.values()))
+  R_consensus = R.from_rotvec(np.array([0, 0, angle_consensus]))
+  # print([math.degrees(angle) for angle in list(angles.values())])
+  # print(math.degrees(angle_consensus))
+
+  for tagM in tagM_s:
+    tag_id = tagM.tag_id
+    if math.degrees(abs(angles[tag_id] - angle_consensus)) > overwrite_threshold:
+      # print(tag_id)
+      R_tagM_tagS = t_tag_rots[tag_id] * R_consensus
+      R_tagM_cam = R_tagM_tagS * R.inv(R_cam_tagS)
+      R_cam_tagM = R.inv(R_tagM_cam)
+      tagM.pose_R = R_cam_tagM.as_matrix()

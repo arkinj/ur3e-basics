@@ -16,11 +16,13 @@ from mit_perception.apriltag_utils import (
     detect_tags)
 
 from mit_perception.perception_utils import(
+    preprocess_T_tag_rotations_in_ref_tag_frame,
     get_tag_poses_in_ref_tag_frame)
 
 from mit_perception.transform_utils import (
     TAG_ORIGINS, 
     T_TAG_ORIGINS, 
+    T_TAG_ROTATIONS,
     env2real,
     tag_poses_to_T_env_pose)
 
@@ -123,9 +125,11 @@ def get_state_estimate_T(
         T_env_pose = (None, None)
 
         if len(detected_ref_tags) > 0:
+            # NEW: preprocess angles to hopefully handle the few that flip:
+
             # get T tag poses wrt each reference tag
             tag_poses_wrt_ref = {ref_tag.tag_id:
-                get_tag_poses_in_ref_tag_frame(detected_mov_tags, ref_tag)
+                get_tag_poses_in_ref_tag_frame(detected_mov_tags, ref_tag, T_TAG_ROTATIONS)
                 for ref_tag in detected_ref_tags}
 
             # debugging...
