@@ -288,7 +288,7 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
             rewards_real.append(reward_sim if args.sim else reward_real)
             if reward_real>0.3:
                 N_idx=1
-            if reward_real>0.7:
+            if reward_real>0.9:
                 done=True
   
             print('reward',reward_sim if args.sim else reward_real)
