@@ -197,9 +197,15 @@ stats_action = {'max':action_max,'min':action_min}
 i_idx=0
 
 input("press enter to start the loop :)\n")
-
+demo_idx=0 #Records number of demos
 seed=1000
 torch.manual_seed(seed=seed)
+
+#Initialize lists for data collection for experiments
+obs_list = []
+action_list =[]
+reward_list = []
+coverage_list = []
 with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
     while not done:
         B = 1
@@ -258,7 +264,7 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
         # (action_horizon, action_dim)
 
         # execute action_horizon number of steps without replanning
-        N_idx=1
+        N_idx=0
         for i in range(0,len(action),N_idx):
             # stepping env
             #uncomment below to use simulated environment
@@ -276,6 +282,10 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
             else:
                 obs_real, coverage_real, reward_real, done_real, info_real = \
                     env_real.step_real(action[i:i+N_idx].reshape((-1,2)), move_group_arm, april_tag, cams)
+                obs_list.append(obs_real)
+                action_list.append(action[i])
+                reward_list.append(reward_real)
+                coverage_list.append(coverage_real)
             # print("Real:",obs_real,"Sim:",obs_sim)
 
             # save observations
@@ -311,6 +321,19 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
 #from IPython.display import Video
 #vwrite('vis_1_01_5.gif', imgs)
 #Video('vis__1_01_5.mp4', embed=True, width=1024*4, height=1024*4)
+
+#### DATA PACKING ####
+action_np = np.array(action_list)
+reward_np = np.array(reward_list)
+coverage_np = np.array(coverage_list)
+obs_np = np.array(obs_list)
+
+experiment_data = {'action':action_np,'obs':obs_np,'reward':reward_np,'coverage':coverage_np}
+file_path = default_base_path+"/demo/"+str(demo_idx)+".pkl"
+file = open(file_path, 'wb')
+pickle.dump(experiment_data,file)
+file.close()
+
 
 #### VISUALIZATION ####
 
