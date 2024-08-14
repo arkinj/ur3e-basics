@@ -17,7 +17,7 @@ import pupil_apriltags as apriltag
 # Import from utils
 from mit_perception.env_T import PushTEnv
 from mit_perception.network import ConditionalUnet1D
-from mit_perception.inference_utils import normalize_data, unnormalize_data
+from mit_perception.inference_utils import normalize_data, unnormalize_data, scale_action,unscale_action, data_pack
 
 import mit_perception.move_utils as arm
 from mit_perception.state_estimator_T import TAG_SIZES, get_state_estimate_T_retry
@@ -33,6 +33,7 @@ parser.add_argument("--download-model", action="store_true")
 parser.add_argument('-g', "--move-gripper", action="store_true")
 parser.add_argument('-s', "--sim", action="store_true")
 parser.add_argument('-o', "--output-path", type=str, default=None)
+parser.add_argument('-id', "--demo_idx", type=int, default=None)
 args = parser.parse_args()
 
 default_base_path = "/catkin_ws/src/mit_perception/media/"
@@ -117,7 +118,10 @@ max_steps = 400
 
 
 # setup real arm
-block_x, block_y = 156, 356
+#block_x, block_y = 115, 370
+#print('Initialize at:',scale_action(np.array([block_x,block_y]).reshape((1,2))))
+#input("press enter once initialization done!:)\n")
+
 #Have flags for what it should do
 if not args.sim:
     move_group_arm, move_group_hand = arm.setup()
@@ -197,7 +201,7 @@ stats_action = {'max':action_max,'min':action_min}
 i_idx=0
 
 input("press enter to start the loop :)\n")
-demo_idx=0 #Records number of demos
+demo_idx=args.demo_idx #Records number of demos
 seed=1000
 torch.manual_seed(seed=seed)
 
@@ -264,7 +268,7 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
         # (action_horizon, action_dim)
 
         # execute action_horizon number of steps without replanning
-        N_idx=0
+        N_idx=1
         for i in range(0,len(action),N_idx):
             # stepping env
             #uncomment below to use simulated environment
@@ -284,8 +288,9 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
                     env_real.step_real(action[i:i+N_idx].reshape((-1,2)), move_group_arm, april_tag, cams)
                 obs_list.append(obs_real)
                 action_list.append(action[i])
-                reward_list.append(reward_real)
-                coverage_list.append(coverage_real)
+                reward_list.append(reward_real.detach().cpu())
+                coverage_list.append(coverage_real.detach().cpu())
+                data_pack(demo_idx,action_list,reward_list,coverage_list,obs_list)
             # print("Real:",obs_real,"Sim:",obs_sim)
 
             # save observations
@@ -300,6 +305,7 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
                 N_idx=1
             if reward_real>0.9:
                 done=True
+            
   
             print('reward',reward_sim if args.sim else reward_real)
             imgs_real.append(env_sim.render(mode=render_mode) if args.sim else env_real.render(mode=render_mode))
@@ -321,18 +327,6 @@ with tqdm(total=max_steps, desc="Eval PushTStateEnv") as pbar:
 #from IPython.display import Video
 #vwrite('vis_1_01_5.gif', imgs)
 #Video('vis__1_01_5.mp4', embed=True, width=1024*4, height=1024*4)
-
-#### DATA PACKING ####
-action_np = np.array(action_list)
-reward_np = np.array(reward_list)
-coverage_np = np.array(coverage_list)
-obs_np = np.array(obs_list)
-
-experiment_data = {'action':action_np,'obs':obs_np,'reward':reward_np,'coverage':coverage_np}
-file_path = default_base_path+"/demo/"+str(demo_idx)+".pkl"
-file = open(file_path, 'wb')
-pickle.dump(experiment_data,file)
-file.close()
 
 
 #### VISUALIZATION ####
