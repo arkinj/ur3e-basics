@@ -1,11 +1,29 @@
-FROM osrf/ros:noetic-desktop-full
+FROM ubuntu:20.04
 
 # Change the default shell to Bash
 SHELL [ "/bin/bash", "-c" ]
 
+# Minimal setup
+RUN apt-get update \
+ && apt-get install -y locales lsb-release gnupg
+ARG DEBIAN_FRONTEND=noninteractive
+RUN dpkg-reconfigure locales
+
+# Install ROS Noetic
+RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+RUN apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ros-noetic-desktop-full
+RUN apt-get install -y --no-install-recommends python3-rosdep
+RUN rosdep init \
+ && rosdep fix-permissions \
+ && rosdep update
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+
 # Download and build any prerequisite libraries
 RUN apt-get update && apt-get install -y \
   build-essential \
+  curl \
   git \
   libpoco-dev \
   libeigen3-dev \
@@ -13,14 +31,14 @@ RUN apt-get update && apt-get install -y \
   software-properties-common \
   ros-noetic-moveit \
   python3-pip \
-  curl \
+  python-is-python3 \
   apt-transport-https \
   eog \
   vim \
   iputils-ping \
   iproute2 \
   usbutils
-  
+
 # Install various python packages
 RUN pip install -U numpy
 RUN pip install opencv-python
@@ -94,7 +112,7 @@ RUN source devel/setup.bash
 ############################################
 
 # Install the ROS package and its dependencies
-RUN apt-get update && apt-get install -y ros-noetic-realsense2-camera 
+RUN apt-get update && apt-get install -y ros-noetic-realsense2-camera
 
 # Install librealsense
 RUN mkdir -p /etc/apt/keyrings
