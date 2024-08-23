@@ -175,7 +175,7 @@ def main():
   wpose.position.x += 0.2
   waypoints.append(copy.deepcopy(wpose))
 
-  wpose.position.y += 0.6
+  wpose.position.y += 0.4
   waypoints.append(copy.deepcopy(wpose))
 
   wpose.position.x -= 0.2
